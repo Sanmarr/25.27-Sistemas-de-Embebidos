@@ -30,7 +30,7 @@
 #align(center)[#text(size: 24pt)[Instituto Tecnológico de Buenos Aires (ITBA)]] 
 
 #figure(
-  image("images/itbaSVG_black.svg", width: 80%)
+  image("/images/itbaSVG_black.svg", width: 80%)
 ) <fig:indice>
 
 #title[
@@ -46,7 +46,7 @@ Ignacio Sammartino
       columns: (1fr, auto),
       align: center,
       [#align(left)[25.27 - Sistemas Embebidos ]],
-      [#align(right)[#image("images/itbaSVG.svg", width: 33%)]]
+      [#align(right)[#image("/images/itbaSVG.svg", width: 33%)]]
     )
   ],
   numbering: "1 of 1",
@@ -69,4 +69,4 @@ Ignacio Sammartino
 #set page(columns: 1)
 
 #pagebreak()
-#include "files/Guia1.typ"
+#include "/files/Guia1.typ"

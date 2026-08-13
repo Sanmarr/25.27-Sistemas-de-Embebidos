@@ -91,17 +91,12 @@ $
 #sym.ballot.check.heavy
 ]
 4. Colocar un breakpoint y ejecutar paso a paso. Visualizar la variable `veces` y el código en assembler del ciclo `while`; ejecutar instrucción por instrucción.
-
 #box(
   fill: rgb("#90EE90"),
   inset: 10pt,
 )[
-
-
-
+#sym.ballot.check.heavy
 ]
-
-
 
 
 5. Modificar el nivel de optimización a 'Optimize most'. ¿Cambia el comportamiento del programa? Investigar qué cambia y por qué.
@@ -109,9 +104,7 @@ $
   fill: rgb("#90EE90"),
   inset: 10pt,
 )[
-
-
-
+#sym.ballot.check.heavy
 ]
 
 == Editando el funcionamiento de Blink
@@ -123,17 +116,14 @@ $
   fill: rgb("#90EE90"),
   inset: 10pt,
 )[
-
-
-
+#sym.ballot.check.heavy
 ]
+
 2. Obtener una captura de osciloscopio del pin del LED.
 #box(
   fill: rgb("#90EE90"),
   inset: 10pt,
 )[
-
-
 
 ]
 == Proyecto Pul2Switch
@@ -166,7 +156,7 @@ $
   fill: rgb("#90EE90"),
   inset: 10pt,
 )[
-#sym.ballot.check.heavy
+
 ]
 
 
