@@ -69,4 +69,7 @@ Ignacio Sammartino
 #set page(columns: 1)
 
 #pagebreak()
-#include "files/Clase.typ"
+#include "files/Introduccion.typ"
+
+#pagebreak()
+#include "files/GPIO.typ"
