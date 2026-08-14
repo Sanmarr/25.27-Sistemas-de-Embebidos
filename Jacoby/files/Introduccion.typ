@@ -31,8 +31,6 @@ Para trabajar con un MCU se requiere [19-22]:
 + *Toolchain:* IDE, compilador y programador/debugger.
 + *SDK:* Librerías y ejemplos de código.
 
-#pagebreak()
-
 == Introducción a Kinetis K64F
 
 === La Familia Kinetis
