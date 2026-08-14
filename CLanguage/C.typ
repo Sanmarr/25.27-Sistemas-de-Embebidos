@@ -412,6 +412,22 @@ int main(){
 }
 ```
 
+== Punteros de Constantes
+
+```c
+char *p = "Hola"        // El string “Hola” se encuentra en memoria flash y no RAM, 
+                        // solo puede leer y no escribir (NO TIRA WARNING).
+
+const char *p = "Hola"  // Puntero de solo lectura del arreglo/string.
+
+char * const p = "Hola" // Puntero es una constante en memoria flash y se puede 
+                        // modificar el contenido del arreglo.
+
+const char * const p = "Hola" // Puntero es una constante en memoria flash y 
+                              // NO se puede modificar el contenido del arreglo/string.
+
+```
+
 = True vs False
 Se pueden hacer en una linea con operadores ternarios.
 ```c
@@ -534,23 +550,609 @@ columns: (0.5fr,1fr),
 )
 
 = sizeof operator
+```c
+sizeof(char);    // 1 bytes
+sizeof(int);     // 4 bytes  - Value depends on the CPU architecture and compiler.
+sizeof(int *);   // 8 bytes  - For a 64 bits CPU
 
+int ar_var[2] = { 0, 1 };
 
+sizeof(ar_var);   // 8 bytes - Value depends on the CPU architecture,
+                  //           compiler and memory alignment.
+
+// Number of elements of the array.
+int num_elems = sizeof(ar_var) / sizeof(ar_var[0]) ;   // 2 elements
+```
+#pagebreak()
 = Structures
-= Structure operators
-= Unions
-= Dynamic memory allocation on the Heap
-= Types of includes
-= Keyword static
-= Same ways of defining strings
-= Functions for manipulating strings and general functions
-= Functions for manipulating files
-= Function pointers
-= C99 - stdint.h - Primitive fixed size types
-= Preprocessor Macros
-= Technique for defining more than one statement in a preprocessor Macro.
-= C for Embedded Systems
-= Keyword const and volatile
-= Sizes for 32 bit microController
-= Two ways of making a Menu with strings - char \* - and send it to UART.
 
+Las estructuras permiten agrupar variables de diferentes tipos bajo un mismo nombre. Según las fuentes, los puntos clave son:
+
+- *Definición y declaración*: Se puede definir la estructura y declarar la variable al mismo tiempo, ya sea de forma global o local.
+- *Uso de typedef*: Es la forma preferida de declarar estructuras, especialmente si se definen en archivos `.h`, ya que facilita su reutilización 
+- *Inicialización*: Pueden inicializarse al momento de la declaración.
+- *Estructuras anidadas*: Una estructura puede contener otra estructura como miembro.
+- *Paso a funciones*: Pueden pasarse por valor (copia) o por referencia (puntero).
+- *Campos de bits (Bit Fields)*: Permiten definir miembros con un tamaño específico en bits.
+
+```c
+struct alumnoT{           //tag
+    int legajo;
+    char nombre[20];
+    float promAcademico;
+};
+struct car mycar;
+```
+
+Utilizando `typedef`
+
+```c
+typedef struct{
+    int legajo;
+    char nombre[20];
+    float promAcademico;
+} alumno_t;               //alias
+alumno_t alumnno;
+
+int main(void){
+  //inicializo estructura
+  alumnno = {63053, "Sammartino", 3.99f};
+  //Cambio parametros
+  alumnno.legajo++;
+  alumnno.nomobre = "Nacho";
+  alumno.promAcademico *= 1;
+}
+```
+
+Por buena practica, se suele declarar las estructuras en los `.h`
+
+*En el .`h`*:
+```c
+  #ifndef CAR_H
+  #define CAR_H
+    // Contains the definition of the new type car that is a structure.
+    typedef struct {
+        char brandName[];
+        char *model;
+        int numDoors;
+    } car_t;
+  #endif
+```
+*En el `.c`*:
+```c
+#include "car.h"
+
+int main(){
+  
+  car_t all_cars[10];
+
+  return 0:
+}
+```
+
+== Nested Structures
+
+Cuando tengo estructuras dentro de otras estructuras. Para declaralas
+```c
+#include <stdint.h>
+
+typedef struct{
+    uint8_t day;
+    uint8_t month;
+    uint16_t year;
+} date_t;
+
+typedef struct{
+    char brandName[];
+    int numDoors;
+    date_t license_plate_date;
+} car_t;
+
+int main(){
+  car_T car_s;
+  car_T *pCar_s;
+  // Accessing the nested structure member.
+  car_s.license_plate_date.day   = 1;
+  pCar_s->license_plate_date.day = 1;  
+
+  return 0:
+}
+```
+== Structure operators
+
+Para acceder a los miembros de una estructura se utilizan dos operadores principales:
+- El operador punto (`.`): Se utiliza cuando se accede a través de una variable de estructura directa
+- El operador flecha (`->`): Se utiliza cuando se accede a través de un puntero a la estructura
+
+```c
+Punto p1 = {10, 20};
+Punto *ptr = &p1;
+
+p1.x = 5;      // Acceso directo
+ptr->y = 15;   // Acceso mediante puntero. Es lo mismo que *(ptr).y
+```
+
+= Bitfields
+Las estructuras permiten definir y trabajar con
+enteros cuyo tamaño es una cantidad de bits que
+no es múltiplo de 8 (ejemplo 1 `bits`, 3 `bits`, 4 `bits`, 12 `bits`, etc)
+
+```c
+#include <stdint.h>
+
+typedef struct{
+  uint8_t Engine      : 1; // Engine control
+  uint8_t Fan         : 1; // Fan Control
+  uint8_t unused      : 2; // unused
+  uint8_t Fuel_level  : 4; // Fuel level sensor (MAX 15)
+} car_status_t;
+```
+
+
+
+= Unions
+Las uniones son similares a las estructuras, pero con una diferencia fundamental: todos sus miembros comparten la misma ubicación de memoria
+. Esto significa que solo se puede almacenar un valor a la vez en la unión. Su tamaño es igual al del tipo de dato más grande
+
+#figure(
+  image("images/union.png", width: 90%)
+) <fig:union>
+
+
+= Dynamic memory allocation on the Heap
+
+La gestión de memoria dinámica permite reservar espacio en el Heap durante la ejecución. Las funciones principales son:
+
+ - `malloc()`: Reserva un bloque de memoria de un tamaño específico y devuelve  - un puntero al inicio
+ - `calloc()`: Reserva múltiples bloques e inicializa todos los bytes en 0
+ - `realloc():` Cambia el tamaño de un bloque de memoria previamente asignado
+ - `free()`: Libera la memoria reservada para que pueda ser reutilizada
+
+== malloc
+```c
+// malloc - Allocates a memory block for 100 int's.
+int main() {
+    int *arr = (int *)malloc(100 * sizeof(int));
+    if (arr != NULL) {
+        // Uso de la memoria...
+        free(arr); // Siempre liberar
+    }
+    return 0;
+}
+```
+
+== calloc
+```c
+int main() {
+  int * ptr_2 = (int *) calloc(100, sizeof(int));
+  if (ptt_1 == NULL){
+    printf("Error in calloc().");
+    free(arr); // Siempre liberar
+  }
+  return 0;
+}
+```
+
+== recalloc
+```c
+#include <stdio.h>
+#include <stdlib.h>
+size_t arrSize = 256; int* arr;
+
+int main(void){
+	arr = calloc(arrSize , sizeof(int));
+	if (arr == NULL){
+		fprintf(stderr, "Error"); return 1;}
+
+	arrSize *= 2;
+	arr = realloc(arr, arrSize * sizeof(int));
+	if (arr == NULL){
+		fprintf(stderr, "Error"); return 1;}
+
+	free(arr);
+  return 0;
+}
+```
+
+= Keyword static
+
+La palabra clave static tiene dos comportamientos distintos según dónde se use:
+
+ - *Fuera de una función*: Define que el alcance de la variable es únicamente el archivo actual, restringiendo su acceso desde otros archivos (encapsulamiento a nivel de archivo).
+
+ - *Dentro de una función*: La variable se crea en la primera llamada y mantiene su valor entre ejecuciones sucesivas de la función, sin ser destruida al terminar la llamada
+
+```c
+// Static global variable. Solo vistas por este archivo
+static int globalVar = 5;
+
+ void contador() {
+    static int cuenta = 0; // Se inicializa una sola vez
+    cuenta++;
+    printf("%d\n", cuenta);
+}
+```
+
+= Functions
+```c
+#include<stdio.h>
+
+//Funcion Declarada
+int suma (int, int);		
+
+//Funcion 
+int suma (int a, int b){return (a + b);}
+
+int main() {
+  int c, n1 = 60, n2 = 7;
+  c = suma(n1, n2);		// invocación //
+  printf ("%d", c);
+  return 0;
+}    
+```
+#pagebreak()
+= Functions for manipulating strings and general functions
+
+== `<stdio.h>`
+#table(
+  columns: (auto, 1fr, 1.2fr),
+  inset: 10pt,
+  align: horizon,
+  [*Función*], [*Descripción*], [*Ejemplo*],
+  [#raw("sprintf()")], [Igual a printf pero escribe en un string (buffer).], [#raw("sprintf(str, \"%d\", 10);")],
+  [#raw("sscanf()")], [Igual a scanf pero lee desde un string.], [#raw("sscanf(str, \"%d\", &n);")],
+)
+
+== `<stdlib.h>`
+#table(
+  columns: (auto, 1fr, 1.2fr),
+  inset: 10pt,
+  align: horizon,
+  [*Función*], [*Descripción*], [*Ejemplo*],
+  [#raw("atoi()")], [Convierte un string a entero (int).], [#raw("int i = atoi(\"42\");")],
+  [#raw("atof()")], [Convierte un string a double.], [#raw("double d = atof(\"3.14\");")],
+  [#raw("atol()")], [Convierte un string a long int.], [#raw("long l = atol(\"1000\");")],
+  [#raw("rand()")], [Devuelve un número aleatorio.], [#raw("int r = rand();")],
+  [#raw("srand()")], [Establece la semilla para números aleatorios.], [#raw("srand(time(NULL));")],
+  [#raw("atexit()")], [Registra una función a ejecutar al salir del programa.], [#raw("atexit(mi_manejador);")],
+  [#raw("getenv()")], [Obtiene variables de entorno del sistema.], [#raw("getenv(\"PATH\");")],
+  [#raw("system()")], [Ejecuta un comando en la terminal del sistema.], [#raw("system(\"ls -l\");")],
+  [#raw("bsearch()")], [Realiza una búsqueda binaria en un arreglo.], [#raw("bsearch(&k, arr, n, s, cmp);")],
+  [#raw("qsort()")], [Ordena un arreglo usando Quick Sort.], [#raw("qsort(arr, n, s, cmp);")],
+)
+
+==  `<string.h>`
+#table(
+  columns: (auto, 1fr, 1.2fr),
+  inset: 10pt,
+  align: horizon,
+  [*Función*], [*Descripción*], [*Ejemplo*],
+  [#raw("memchr()")], [Busca la primera aparición de un byte en memoria.], [#raw("memchr(ptr, 'a', n);")],
+  [#raw("memcmp()")], [Compara n caracteres entre dos bloques de memoria.], [#raw("memcmp(s1, s2, n);")],
+  [#raw("memcpy()")], [Copia n caracteres de un bloque a otro.], [#raw("memcpy(dest, src, n);")],
+  [#raw("memmove()")], [Copia memoria incluso si los bloques se solapan.], [#raw("memmove(dest, src, n);")],
+  [#raw("memset()")], [Inicializa un bloque de memoria con un valor.], [#raw("memset(ptr, 0, n);")],
+  [#raw("strcat()")], [Concatena el string s2 al final de s1.], [#raw("strcat(s1, s2);")],
+  [#raw("strchr()")], [Busca la primera aparición de un char en un string.], [#raw("strchr(str, 'x');")],
+  [#raw("strcmp()")], [Compara dos strings alfabéticamente.], [#raw("strcmp(s1, s2);")],
+  [#raw("strcpy()")], [Copia el string s2 en el arreglo s1.], [#raw("strcpy(s1, s2);")],
+  [#raw("strlen()")], [Devuelve la longitud del string (sin el '\\0').], [#raw("strlen(\"hola\"); // 4")],
+  [#raw("strstr()")], [Encuentra la primera aparición de s2 dentro de s1.], [#raw("strstr(s1, \"sub\");")],
+  [#raw("strtok()")], [Divide un string en tokens (partes) según un delimitador.], [#raw("strtok(str, \" \");")],
+)
+
+== Functions for manipulating files
+===  Open a file with `fopen`
+
+#box(
+  stroke: 1pt,
+  inset: 10pt,
+)[
+`r`  - Open text file for reading.
+
+`w`  - Open text file for writing. If the file already
+       exists it truncates to zero length. Begin of the file.
+
+`a`  - Open the file in append mode. You write at the end of
+       the file.
+
+`r+` - Open the file for reading and for writing. File position
+       at the beginning of the file. 
+
+`w+` - Creates a new text file for reading and for writing.
+       If the file already exists it will truncate the file
+       to zero length.
+
+`a+` - Open an existing file or create a new one in append mode.
+       You can read data anywhere but you can only add data in
+       the end of the file.  
+
+`rb`  - Open file for reading in binary.
+
+`wb` - Open file for writing in binary.
+]
+
+```c
+FILE * open_file(char *filename){
+    FILE *fp;  // file pointer
+
+    fp = fopen(filename, "r");   // r - for read
+    if (fp == NULL)
+        fprintf( stderr, "Error opening file.\n");
+    return fp;
+}
+```
+=== Read and write from / to a file
+
+#table(
+  columns: (auto, 1fr, 1.2fr),
+  inset: 10pt,
+  align: horizon,
+  [*Función*], [*Descripción*], [*Ejemplo*],
+  [#raw("getc()")], [Macro para leer un carácter de un flujo.], [#raw("c = getc(archivo);")],
+  [#raw("fgetc()")], [Función para leer un carácter (equivalente a getc).], [#raw("c = fgetc(archivo);")],
+  [#raw("putc()")], [Macro para escribir un carácter en un flujo.], [#raw("putc('A', archivo);")],
+  [#raw("fputc()")], [Función para escribir un carácter (equivalente a putc).], [#raw("fputc('A', archivo);")],
+  [#raw("ungetc()")], [Devuelve un carácter al flujo del archivo.], [#raw("ungetc(c, archivo);")],
+  [#raw("fflush()")], [Limpia (vuelca) el búfer del archivo.], [#raw("fflush(archivo);")],
+  [#raw("ftell()")], [Devuelve la posición actual del puntero en el archivo.], [#raw("long pos = ftell(archivo);")],
+  [#raw("fprintf()")], [Igual a printf, pero escribe en un archivo.], [#raw("fprintf(fp, \"%s\", txt);")],
+  [#raw("fscanf()")], [Igual a scanf, pero lee datos desde un archivo.], [#raw("fscanf(fp, \"%d\", &n);")],
+  [#raw("clearerr()")], [Reinicia los indicadores de error y fin de archivo.], [#raw("clearerr(archivo);")],
+  [#raw("feof()")], [Verifica si se alcanzó el indicador de fin de archivo (EOF).], [#raw("if(feof(fp)) break;")],
+  [#raw("ferror()")], [Devuelve el código de error al leer o escribir en el flujo.], [#raw("if(ferror(fp)) return 1;")],
+  [#raw("tmpfile()")], [Crea un archivo binario temporal.], [#raw("FILE *temp = tmpfile();")],
+  [#raw("remove()")], [Elimina un archivo del sistema de archivos.], [#raw("remove(\"datos.old\");")],
+  [#raw("rename()")], [Renombra un archivo en el sistema de archivos.], [#raw("rename(\"a.txt\", \"b.txt\");")],
+  [#raw("setbuf()")], [Altera las propiedades del búfer para un archivo.], [#raw("setbuf(fp, mi_buffer);")],
+)
+
+```c
+#include <stddef.h>
+#include <stdio.h>
+
+#define FAIL    0
+#define SUCCESS 1
+
+int copy_text_or_bin_file(char * input_file, char * output_file){
+    FILE *fp1, *fp2;
+    if ( (fp1 = fopen(input_file, "rb")) == NULL )
+        return FAIL;
+    if ( (fp2 = fopen(output_file, "wb")) == NULL ){
+        fclose( fp1 );
+        return FAIL;
+    }
+    while (!feof(fp1))
+        putc(getc( fp1), fp2);
+    fclose(fp1);
+    fclose(fp2);
+    return SUCCESS;
+}
+```
+
+
+
+
+== Function pointers
+
+Los punteros a funciones permiten almacenar la dirección de una función en una variable, lo que facilita el paso de funciones como argumentos o la creación de tablas de funciones.
+ - *Puntero simple*: Permite llamar a una función dinámicamente.
+ - *Arreglo de punteros a funciones*: Muy útil para implementar máquinas de estado o menús.
+
+```c
+int sumar(int a, int b) { return a + b; }
+
+int main() {
+    // Declaración: tipo_retorno (*nombre)(argumentos)
+    int (*ptr_funcion)(int, int) = sumar;
+    int resultado = ptr_funcion(5, 3);
+    
+    // Arreglo de punteros a funciones
+    int (*operaciones[2])(int, int) = {sumar};
+    return 0;
+}
+```
+
+= Threads
+
+Los hilos o *threads* son unidades de ejecución dentro de un proceso que permiten realizar múltiples tareas de forma eficiente.
+
+== Concurrencia vs Paralelismo
+Es importante distinguir estos dos conceptos fundamentales:
+- *Concurrencia*: Capacidad de realizar varias tareas al mismo tiempo (pueden intercalarse en una sola CPU).
+- *Paralelismo*: Realización de varias tareas de forma simultánea (requiere múltiples CPUs).
+
+== Procesos vs Threads
+A diferencia de los procesos, que tienen su propia memoria asignada por el SO, los *threads* comparten la memoria del proceso padre. Esto los hace más rápidos al evitar el "overhead" del cambio de contexto, aunque cada uno mantiene su propio *Program Counter* (PC) y *Stack Pointer* (SP).
+
+== Pthreads API
+Para trabajar con hilos en C se utiliza la librería estándar *POSIX threads* (pthreads). Las funciones principales son:
+
+- *pthread_create*: Crea un nuevo hilo para ejecutar una rutina específica.
+- *pthread_exit*: Termina la ejecución del hilo actual.
+- *pthread_join*: Sincroniza la ejecución, esperando a que un hilo termine.
+
+```c
+int main()
+{
+  int status;
+  pthread_t tid1,tid2;
+  pthread_create(&tid1,NULL,thread1,NULL); // create thread thread1
+  pthread_create(&tid2,NULL,thread2,NULL); // create thread thread2
+  pthread_join(tid1,NULL);  // suspends execution of the calling 
+                            //thread until the target thread (thread1) terminates
+  pthread_join(tid2,NULL); // suspends execution of the calling thread 
+                           //until the target thread (thread2) terminates
+  return 0;
+}
+```
+
+== Sincronización 
+Cuando varios hilos acceden y modifican la misma variable (memoria compartida), pueden ocurrir condiciones de carrera. Para evitarlo, se utilizan mecanismos de sincronización:
+=== Mutex (Mutual Exclusion) 
+Un Mutex es un objeto de exclusión mutua que restringe el acceso a una sección crítica a un solo hilo a la vez.
+ - *Lock*: El hilo intenta adquirir el candado; si está ocupado, se bloquea.
+ - *Unlock*: El hilo libera el candado para que otros puedan usarlo.
+=== Semáforos
+Son enteros sin signo que funcionan como contadores. Un hilo "espera" (wait) decrementando el contador y se bloquea si es 0, o "señaliza" (post) incrementándolo.
+
+```c
+#include <semaphore.h>
+
+sem_t semaforo;
+
+int main() {
+    sem_init(&semaforo, 0, 1); // Inicializa en 1 (binario)
+    sem_wait(&semaforo);       // Entra a sección crítica
+    // ... código protegido ...
+    sem_post(&semaforo);       // Sale de sección crítica
+    sem_destroy(&semaforo);
+    return 0;
+}
+```
+
+= Callbacks
+
+Un *callback* es una función que se pasa como parámetro a otra función. De esta manera, la función receptora puede invocar al *callback* para realizar una tarea o acción específica en tiempo de ejecución.
+
+== Tipos de Invocación
+Dependiendo de cuándo se ejecute la función pasada, la invocación puede ser:
+- *Sincrónica*: La llamada es inmediata (ej. en algoritmos de ordenamiento).
+- *Asincrónica*: La llamada es diferida o postergada hasta que ocurra un evento externo.
+
+== Aplicaciones Comunes
+=== Algoritmo qsort()
+La función estándar `qsort()` de la biblioteca `<stdlib.h>` es el ejemplo clásico de callback.
+
+```c
+#include <stdlib.h>
+
+// Definición del callback de comparación
+int comparar(const void *a, const void *b) {
+    return (*(int*)a - *(int*)b);
+}
+
+int main() {
+    int datos[] = {5, 2, 8, 1};
+    // Se pasa 'comparar' como argumento a qsort
+    qsort(datos, 4, sizeof(int), comparar);
+    return 0;
+}
+```
+
+=== Programación orientada a eventos 
+En este escenario, el programa 'registra' una función (el callback) para que sea ejecutada automáticamente cuando suceda algo, como un clic en un botón o la expiración de un temporizador (timer).
+```c
+void mi_manejador_timer(void) {
+    /* Código para manejar el evento del timer */
+}
+
+int main() {
+    // Registro del callback
+    register_timer_callback(mi_manejador_timer);
+    
+    while(1) {
+        // El sistema invoca a mi_manejador_timer al ocurrir el evento
+    }
+}
+```
+
+== Implementación con Punteros a Función 
+Para que una función pueda recibir a otra como parámetro, se utilizan punteros a funciones. El nombre de una función representa su dirección de memoria.
+ - *Declaración*: Se define el prototipo que el callback debe cumplir.
+ - *Pasaje*: Se envía el nombre de la función sin paréntesis.
+ - *Ejecución*: Se puede llamar usando el puntero directamente o desreferenciándolo.
+
+```c
+// Definición: tipo_retorno (*nombre)(argumentos)
+void ejecutar(void (*callback)(void)) {
+    callback(); // Ejecución del callback
+}
+
+void saludar() { printf("Hola!\n"); }
+
+int main() {
+    ejecutar(saludar); // Se pasa la dirección de saludar
+    return 0;}
+```
+
+= Multiple files
+La forma correcta de trabajar con multiarchivo es utilizar 2 archivos por módulo: el source/fuente y el header/encabezado.
+
+ - *header (.h)* : Debe contener toda la información necesaria para poder utilizar el módulo.
+
+ - *fuente (.c)* : Debe contener toda la información necesaria para poder hacer funcionar el módulo.
+
+#figure(
+  image("images/stack.png", width: 70%)
+) <fig:stack>
+
+Para evitar multiples definiciones:
+
+#figure(
+  image("images/mul.png", width: 50%)
+) <fig:mul>
+
+
+```c
+#ifndef STACK_H
+#define STACK_H
+
+void make_empty(void);
+int is_empty(void);
+int is_full(void);
+void push(int i);
+int pop(void);
+
+#endif
+```
+
+= From Code to executable
+El camino que sigue un archivo fuente para convertirse en un programa ejecutable consta de cuatro etapas principales ejecutadas por la *toolchain* de GCC.
+
+== 1. Preprocesamiento (Preprocessing)
+En esta etapa, el preprocesador (`cpp`) analiza todas las líneas que comienzan con el carácter `#`. Sus tareas principales incluyen la expansión de macros definidas con `#define` y la inclusión de archivos de cabecera mediante `#include`. El resultado es un archivo de código C modificado que suele tener la extensión `.i`.
+#box(
+  stroke: 1pt,
+  inset: 10pt,
+)[
+*Comando para ver la salida:* `gcc -E programa.c`
+]
+== 2. Compilación (Compilation)
+El compilador toma el código preprocesado y lo traduce a **lenguaje ensamblador** (*assembly code*), el cual es específico para la arquitectura del procesador. Este código intermedio se guarda habitualmente en archivos con extensión `.s`.
+
+== 3. Ensamblado (Assemble)
+El ensamblador (`as`) traduce las instrucciones de lenguaje ensamblador a **código de máquina** (binario), generando lo que se conoce como *archivo objeto*. Estos archivos, con extensión `.o` o `.obj`, contienen instrucciones que el procesador entiende, pero que aún no forman un programa completo.
+#box(
+  stroke: 1pt,
+  inset: 10pt,
+)[
+*Comando para generar solo el objeto:* `gcc -c programa.c`
+]
+
+== 4. Vinculación (Linking)
+Es la etapa final donde el vinculador (`ld`) recolecta todos los archivos objeto del proyecto y las librerías estáticas necesarias (como `<stdio.h>` o `<stdlib.h>`). El vinculador resuelve las direcciones de las funciones y une todo en un único **archivo ejecutable** final (como `.exe` o `.out`).
+
+- *Comando completo:* `gcc programa.c -o ejecutable`
+
+#figure(
+  image("images/gccToolChain.png", width: 100%)
+) <fig:gccToolChain>
+
+
+
+= MakeFile
+#figure(
+  image("images/make.png", width: 60%)
+) <fig:make>
+
+== HelloMake example
+
+#figure(
+  image("images/helloMake.png", width: 70%)
+) <fig:make>
+
+
+#figure(
+  image("images/helloMake2.png", width: 80%)
+) <fig:make2>
