@@ -70,3 +70,5 @@ Ignacio Sammartino
 
 #pagebreak()
 #include "/files/Guia1.typ"
+#pagebreak()
+#include "/files/Guia2.typ"

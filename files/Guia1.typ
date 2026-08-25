@@ -202,11 +202,6 @@ $
 
 == Proyecto Baliza
 
-#box(
-  stroke: 1pt,
-  inset: 18pt,
-  radius: 10pt,
-)[
 1. Crear un proyecto nuevo llamado Baliza que simule la baliza de un automóvil.
 #box(
   fill: rgb("#90EE90"),
@@ -234,5 +229,5 @@ $
 
 
 ]
-]
+
 

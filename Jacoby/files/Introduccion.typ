@@ -1,5 +1,10 @@
 = Introducción a los Microcontroladores
 
+/*
+#figure(
+  image("/images/intro.png", width: 30%)
+) <fig:indice>
+*/
 == Integración y SoC
 Históricamente, los sistemas microprocesados requerían múltiples integrados (CPU, RAM, ROM, Clock, etc.) . Los *Microcontroladores (MCU)* actuales integran todos estos bloques en un solo chip, conocido como *System on Chip* (SoC) :
 -  *CPU:* Microprocesador central.
