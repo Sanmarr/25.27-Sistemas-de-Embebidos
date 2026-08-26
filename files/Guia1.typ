@@ -10,7 +10,7 @@ Contestar las siguientes preguntas, indicando en cuál documento y sección se e
   inset: 10pt,
   radius: 5pt
 )[
-1. ¿En cuál número de pin del MCU se encuentra el puerto PTA12?
+1. ¿En cuál número de pin del MCU se encuentra el puerto PTA12?  #sym.ballot.check.heavy
 ]
 
 
