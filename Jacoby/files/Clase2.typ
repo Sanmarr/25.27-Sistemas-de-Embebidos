@@ -210,10 +210,15 @@ Es el controlador de interrupciones anidadas y vectorizadas integrado directamen
 Para controlar y supervisar las interrupciones de periféricos del K64, el NVIC utiliza un conjunto estructurado de registros agrupados en la estructura CMSIS `NVIC_Type`:
 
  - `ISER` (*Interrupt Set-Enable Registers*): Registros de 32 bits utilizados para habilitar individualmente cada línea de interrupción. El bit asignado en ISER a un periférico debe ponerse en 1 para que el procesador comience a escuchar ese evento.
+
 - `ICER` (*Interrupt Clear-Enable Registers*): Registros para deshabilitar interrupciones específicas de forma individual.
+
 - `ISPR` (*Interrupt Set-Pending Registers*): Registros que colocan una interrupción en estado pendiente. Esto permite disparar una interrupción por software de manera controlada para pruebas o programación estructurada.
+
 - `ICPR` (*Interrupt Clear-Pending Registers*): Registros que limpian el estado pendiente de las interrupciones individuales.
+
 - `IABR` (*Interrupt Active Bit Registers*): Registros que informan si una interrupción está activa en ese momento (ejecutando su respectivo Handler) o si ha sido pausada para atender a una de mayor prioridad.
+
 - `IPR` o `IP` (*Interrupt Priority Registers*): Registros encargados de fijar la prioridad de cada interrupción. Aunque el procesador Cortex-M4 admite prioridades de 8 bits completos, el chip K64 solo implementa los 4 bits más significativos, permitiendo elegir entre 16 niveles de prioridad (#text(fill: red,weight: "bold")[donde 0 es la máxima prioridad y 15 es la mínima])
 
 #box(
