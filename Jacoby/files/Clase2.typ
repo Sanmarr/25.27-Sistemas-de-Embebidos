@@ -339,8 +339,7 @@ __STATIC_INLINE void __NVIC_SetPriority(IRQn_Type IRQn, uint32_t priority)
 )[
 `App.c`
 ```c
-__ISR__ SW3_Handler (void)
-{
+__ISR__ SW3_Handler (void){
 	PORT_ClearInterruptFlag (PA, 4);
   gpioToggle(PIN_LED_BLUE);
 }
@@ -348,8 +347,7 @@ __ISR__ SW3_Handler (void)
 
 ```c
 /* Función que se llama 1 vez, al comienzo del programa */
-void App_Init (void)
-{
+void App_Init (void){
 	hw_DisableInterrupts(); //para que no me interrumpan la inicializacion
 
 	//Habilito los clocks de solo los puertos que voy a usar
@@ -361,9 +359,10 @@ void App_Init (void)
 	PORTE->PCR[26]=0x0; 					                //Clear all bits
 	PORTE->PCR[26]|=PORT_PCR_MUX(1); 		          //Set MUX to GPIO that is ALT1 
 	PORTE->PCR[26]|=PORT_PCR_DSE(1);          		//Drive strength enable
-	gpioIRQ(PIN_LED_GREEN, , pinIrqFun_t irqFun); //Disable interrupts
 
-  // Global Pin Control High Registe Which Pins
+  // Global Pin Control High Registe Which Pins. Me ahorro:
+  // PORTB->PCR[21] = ...
+  // PORTB->PCR[22] = ...
 	uint32_t temp = PORT_GPCHR_GPWE((1<<(21-16))|(1<<(22-16))); 
 	temp|=PORT_GPCHR_GPWD(PORT_PCR_MUX(1));  //Set MUX to GPIO
 
@@ -371,7 +370,7 @@ void App_Init (void)
 	temp|=PORT_GPCHR_GPWD(PORT_PCR_DSE(1));			  //Drive strength enable
 	PORTB->GPCHR=temp;								            //Set all at once
 
-	//SW3
+	//SW3 - Pin: PTA4
 	PORTA->PCR[4]=0x0;                 //Clear
 	PORTA->PCR[4]|=PORT_PCR_MUX(1); 	 //Set MUX to GPIO
 	PORTA->PCR[4]|=PORT_PCR_PE(1);     //Pull UP/Down  Enable
@@ -485,10 +484,8 @@ bool gpioRead (pin_t pin)
 {
     uint8_t portId = PIN2PORT(pin);
     uint8_t pinNum = PIN2NUM(pin);
-
-    // Port Data Input Register
-    // Retorna true (1) si el bit está en alto, o false (0) si está en bajo.
-    return (gpio_ptrs[portId]->PDIR & (1 << pinNum)) != 0;
+    
+    return (gpio_ptrs[portId]->PDIR & (1 << pinNum)) != 0; // Port Data Input Register
 }
 ```
 ```c
@@ -498,17 +495,20 @@ bool gpioIRQ(pin_t pin, uint8_t irqMode, pinIrqFun_t irqFun) {
   uint8_t pinNum = PIN2NUM(pin);
 
   if (portId > PE || irqMode >= GPIO_IRQ_CANT_MODES) {return false;}
+  
   irq_callbacks[portId][pinNum] = irqFun;
 
-  // Arreglo de traducción: mapea índices 0,1,2,3 a valores de hardware 0x0, 0x9, 0xA, 0xB
   static const uint8_t irqc_map[] = {0x0, 0x9, 0xA, 0xB};
   
   uint32_t irqc_value = irqc_map[irqMode]; // Obtenemos el valor directo sin switch
 
   static PORT_Type * const puertos_base[] = {PORTA, PORTB, PORTC, PORTD, PORTE};
-  puertos_base[portId]->PCR[pinNum] = (puertos_base[portId]->PCR[pinNum] & ~PORT_PCR_IRQC_MASK) | PORT_PCR_IRQC(irqc_value);
 
-  NVIC_EnableIRQ(PORTA_IRQn + portId); //se para en la posicion base del primer puerto y se mueve port id veces hasta tu puerto
+  puertos_base[portId]->PCR[pinNum] = (puertos_base[portId]->PCR[pinNum] & ~PORT_PCR_IRQC_MASK) | 
+                                      PORT_PCR_IRQC(irqc_value);
+
+  //Se para en la posicion base del primer puerto y se mueve port id veces hasta tu puerto
+  NVIC_EnableIRQ(PORTA_IRQn + portId); 
 
   return true;
 }

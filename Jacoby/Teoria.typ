@@ -82,3 +82,6 @@ Ignacio Sammartino
 
 #pagebreak()
 #include "files/Clase2.typ"
+
+#pagebreak()
+#include"files/Clase3.typ"
