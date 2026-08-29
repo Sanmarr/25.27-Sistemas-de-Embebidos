@@ -1,5 +1,7 @@
 #import "@preview/codly:1.3.0": *
 #import "@preview/codly-languages:0.1.1": *
+// Set font size specifically for block-level code
+#show raw.where(block: true): set text(size: 8pt)
 
 #show: codly-init.with()
 
