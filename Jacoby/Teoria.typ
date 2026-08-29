@@ -17,7 +17,7 @@
 //Seteo el formato del texto
 #set text(
   font: "Linux Biolinum O",
-  size: 12pt,
+  size: 10pt,
   tracking: 0pt, // (Default = 0pt2)
   spacing: 100%,
   fractions: false /* Se rompe por algun motivo con true*/
@@ -77,3 +77,6 @@ Ignacio Sammartino
 
 #pagebreak()
 #include "files/Clase1.typ"
+
+#pagebreak()
+#include "files/Clase2.typ"

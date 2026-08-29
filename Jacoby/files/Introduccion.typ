@@ -30,7 +30,7 @@ Se eligen y distinguen principalmente por :
 El consumo se divide en potencia estática y dinámica, dominando generalmente la *dinámica* . Es fundamental el uso de modos *Sleep* para ahorrar energía en sistemas a batería, teniendo en cuenta que a menor consumo, mayor es el tiempo de despertar (*wakeup*).
 
 == Ecosistema de Desarrollo
-Para trabajar con un MCU se requiere [19-22]:
+Para trabajar con un MCU se requiere:
 + *Documentación:* Datasheet y Reference Manual.
 + *Evaluation Board:* Placa de desarrollo con el MCU.
 + *Toolchain:* IDE, compilador y programador/debugger.
