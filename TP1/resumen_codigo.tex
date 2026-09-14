@@ -1,0 +1,552 @@
+\documentclass[11pt,a4paper]{article}
+
+% ---------------------------------------------------------------------------
+% Paquetes
+% ---------------------------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[spanish]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!50!black,
+    citecolor=black,
+    urlcolor=blue!50!black
+}
+
+% ---------------------------------------------------------------------------
+% Estilo de los listados de codigo
+% ---------------------------------------------------------------------------
+\definecolor{codebg}{RGB}{245,245,245}
+\definecolor{codekw}{RGB}{0,0,180}
+\definecolor{codecom}{RGB}{0,120,0}
+\definecolor{codestr}{RGB}{170,90,0}
+
+\lstdefinestyle{cstyle}{
+    language=C,
+    backgroundcolor=\color{codebg},
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{codekw}\bfseries,
+    commentstyle=\color{codecom}\itshape,
+    stringstyle=\color{codestr},
+    numbers=left,
+    numbersep=6pt,
+    numberstyle=\tiny\color{gray},
+    frame=single,
+    rulecolor=\color{gray!60},
+    breaklines=true,
+    breakatwhitespace=false,
+    showstringspaces=false,
+    tabsize=2,
+    captionpos=b,
+    xleftmargin=1.5em,
+    framexleftmargin=1.2em
+}
+\lstset{style=cstyle}
+
+\title{\textbf{Resumen Técnico del Firmware}\\[4pt]
+\large Sistema de Control de Acceso -- FRDM-K64F}
+\author{Santiago Riverós \and Ignacio Sammartino \and Rodrigo Devesa \and Leandro Yiu}
+\date{TP1 -- Sistemas Embebidos}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\noindent
+Este documento resume, con fragmentos de código reales del firmware, las
+decisiones de diseño más importantes del sistema: la separación en capas
+APP/HAL/MCAL, la máquina de estados principal, el driver genérico de
+display, el manejo de interrupciones y el driver del lector de banda
+magnética. No es una descripción exhaustiva del código: el objetivo es
+explicar el \emph{por qué} detrás de las partes menos obvias de la
+implementación.
+\end{abstract}
+
+\tableofcontents
+
+% =============================================================================
+\section{Arquitectura en capas: APP $\to$ HAL $\to$ MCAL}
+% =============================================================================
+
+El firmware está organizado en tres capas con una regla estricta de
+dependencia: la capa de \textbf{aplicación} (\lstinline{APP_layer}) sólo
+puede llamar a la capa \textbf{HAL} (\lstinline{HAL_layer}), y ésta a su vez
+sólo puede llamar al \textbf{MCAL} (\lstinline{MCAL_layer}, acceso directo a
+los periféricos). La única excepción documentada es que el MCAL puede
+invocar, a través de un puntero a función, un callback registrado por la
+capa HAL (por ejemplo, el tick del \lstinline{SysTick} llamando a la tarea
+de refresco del display).
+
+Un caso concreto de esta regla en acción: originalmente, \lstinline{App.c}
+llamaba directamente a funciones del MCAL (\lstinline{SysTick_Init},
+\lstinline{NVIC_SetPriority}), lo que violaba la capa HAL. La solución fue
+introducir una fachada delgada, \lstinline{scheduler.h/.c}, que no agrega
+lógica propia: sólo reenvía cada llamada al MCAL correspondiente, de modo
+que la capa APP nunca necesita incluir un header del MCAL.
+
+\begin{lstlisting}[caption={Fachada HAL sobre el SysTick (\texttt{scheduler.c}): reenvío puro, sin lógica propia.}, label={lst:scheduler}]
+void HAL_Scheduler_Init(void)
+{
+    (void)SysTick_Init();
+}
+
+bool HAL_Scheduler_AddTask(hal_task_t tarea)
+{
+    /* systick_callback_t y hal_task_t tienen la misma firma: la fachada
+     * no le agrega semantica, solo evita que la APP conozca al MCAL. */
+    return SysTick_AddCallback((systick_callback_t)tarea);
+}
+
+void HAL_Scheduler_GlobalIRQDisable(void)
+{
+    __disable_irq();
+}
+
+void HAL_Scheduler_GlobalIRQEnable(void)
+{
+    __enable_irq();
+}
+\end{lstlisting}
+
+Gracias a esta fachada, \lstinline{App_Init()} puede deshabilitar las
+interrupciones globales durante todo el arranque (mientras los periféricos
+todavía no están configurados) y rehabilitarlas recién al final, sin que la
+capa de aplicación toque directamente el core:
+
+\begin{lstlisting}[caption={Arranque seguro en \texttt{App\_Init()}: interrupciones cortadas mientras el hardware se configura.}, label={lst:appinit}]
+void App_Init(void)
+{
+    HAL_Scheduler_GlobalIRQDisable();
+
+    HAL_Scheduler_Init();
+    /* ... inicializacion de todos los modulos HAL ... */
+
+    HAL_Scheduler_GlobalIRQEnable();
+}
+\end{lstlisting}
+
+
+% =============================================================================
+\section{Configuración centralizada y portabilidad}
+% =============================================================================
+
+Los valores que dependen del hardware o del ajuste fino de la aplicación
+viven en archivos \lstinline{_cfg.h} dedicados (\lstinline{display_cfg.h},
+\lstinline{fsm_cfg.h}), separados de la lógica que los usa. Esto permite
+portar el driver de display a otra placa, u otro proyecto, tocando
+\emph{un solo archivo}.
+
+El ejemplo más claro es la macro \lstinline{DISPLAY_COMPOSE}, que define
+cómo se arma la trama binaria que se envía a los shift-registers 74HC595.
+El motor gráfico del driver (\lstinline{display.c}) no sabe cuántos
+registros hay ni en qué byte cae cada campo: sólo calcula \emph{qué}
+segmentos y selector hay que mostrar, y delega el \emph{cómo empaquetarlos}
+en esta macro.
+
+\begin{lstlisting}[caption={\texttt{DISPLAY\_COMPOSE} en \texttt{display\_cfg.h}: el único lugar que conoce el cableado real de los shift-registers.}, label={lst:compose}]
+/* CABLEADO ACTUAL: dos registros; el primero en salir (U2) lleva los bits de
+ * control (selector + LEDs) y el segundo (U1) los segmentos. */
+#define DISPLAY_COMPOSE(frame, segs, sel, aux)                  \
+    do {                                                        \
+        (frame)[0] = (uint8_t)((aux) | (sel));   /* control  */ \
+        (frame)[1] = (uint8_t)(segs);            /* segmentos*/ \
+    } while (0)
+\end{lstlisting}
+
+De la misma forma, \lstinline{fsm_cfg.h} centraliza todos los tiempos y
+umbrales de la máquina de estados (duración de mensajes, cantidad de
+intentos fallidos, prioridad de interrupción del SysTick), con
+\lstinline{_Static_assert} que verifican en tiempo de compilación que la
+configuración sea coherente:
+
+\begin{lstlisting}[caption={Chequeos de coherencia en tiempo de compilación (\texttt{fsm\_cfg.h}).}, label={lst:staticassert}]
+#define FSM_MS_ACCESO_MENSAJE       2000U    /* "OPEn" fijo, para leerlo       */
+#define FSM_MS_ACCESO_TOTAL         5000U    /* total con el pestillo abierto  */
+
+_Static_assert(FSM_MS_ACCESO_MENSAJE <= FSM_MS_ACCESO_TOTAL,
+               "OPEn fijo no puede durar mas que el total de puerta abierta");
+\end{lstlisting}
+
+
+% =============================================================================
+\section{Máquina de estados principal}
+% =============================================================================
+
+El comportamiento de la aplicación es una FSM clásica de eventos y estados,
+declarada en \lstinline{fsm.h} y despachada en \lstinline{FSM_Update()}. Los
+eventos representan entradas del sistema (giros del encoder, lectura de
+tarjeta, timeout de inactividad); los estados representan las pantallas /
+modos en los que puede estar el sistema.
+
+\begin{lstlisting}[caption={Enumeraciones de eventos y estados de la FSM (\texttt{fsm.h}).}, label={lst:fsmenums}]
+typedef enum
+{
+    EV_NONE,
+    EV_ENCODER_GIRO_DER, EV_ENCODER_GIRO_IZQ,
+    EV_ENCODER_GIRO_PRESIONADO_DER, EV_ENCODER_GIRO_PRESIONADO_IZQ,
+    EV_ENCODER_PRESIONA, EV_ENCODER_DOBLE_TOQUE,
+    EV_ENCODER_MANTENER, EV_ENCODER_LIBERA_PERILLA,
+    EV_CARD_OK, EV_CARD_ERROR,
+    EV_TIMEOUT
+} fsm_event_t;
+
+typedef enum
+{
+    STATE_STANDBY, STATE_LECTURA_ID, STATE_INGRESO_PIN,
+    STATE_ACCESO_OK, STATE_PIN_INCORRECTA_DELAY, STATE_BLOQUEO_ID,
+    STATE_MODO_ADMIN, STATE_ERROR
+} fsm_state_t;
+\end{lstlisting}
+
+El despacho es un \lstinline{switch} sobre el estado actual: cada estado es
+una función \lstinline{SubFSM_*} independiente que recibe el evento y
+devuelve el próximo estado. Antes de llegar a ese switch, \emph{dos}
+eventos se interceptan de forma global porque aplican sin importar en qué
+estado esté el sistema: el reset por mantener presionada la perilla, y el
+ajuste de brillo.
+
+\begin{lstlisting}[caption={\texttt{FSM\_Update()}: eventos globales interceptados antes del despacho por estado.}, label={lst:fsmupdate}]
+void FSM_Update(fsm_event_t evento)
+{
+    /* RESET GLOBAL: disponible desde cualquier estado, salvo penalizado */
+    if (evento == EV_ENCODER_MANTENER)
+    {
+        if (f_penalizado == false)
+        {
+            FSM_Init();
+            return;
+        }
+    }
+
+    /* AJUSTE DE BRILLO GLOBAL: idem, no pasa por ningun sub-estado */
+    if (evento == EV_ENCODER_GIRO_PRESIONADO_DER)
+    {
+        HAL_Brightness_Display(INCREASE);
+        return;
+    }
+    /* ... */
+
+    switch (estado_actual)
+    {
+        case STATE_STANDBY:     estado_actual = SubFSM_StandBy(evento);     break;
+        case STATE_LECTURA_ID:  estado_actual = SubFSM_Lectura_ID(evento);  break;
+        /* ... resto de los estados ... */
+    }
+}
+\end{lstlisting}
+
+
+% =============================================================================
+\section{Agrupación de estado relacionado en \textit{structs}}
+% =============================================================================
+
+Cada submáquina de la FSM que necesita más de una variable de contexto las
+agrupa en un \lstinline{struct} propio, en vez de dejarlas como variables
+sueltas del archivo. Esto deja explícito qué datos pertenecen a qué
+submáquina, y evita que se puedan actualizar de forma inconsistente entre
+sí (por ejemplo, tocar el cursor del menú admin sin resetear también el
+flag de refresco).
+
+\begin{lstlisting}[caption={Contexto del modo administrador agrupado en un \textit{struct} (\texttt{fsm.c}).}, label={lst:adminctx}]
+typedef struct
+{
+    admin_substate_t substate;
+    uint8_t          cursor;              /* opcion resaltada del menu     */
+    uint8_t          usuario_sel;         /* indice del usuario en gestion */
+    bool             f_creando_usuario;   /* alta nueva vs edicion         */
+    bool             f_refrescar;         /* se acaba de (re)entrar        */
+} admin_ctx_t;
+
+static admin_ctx_t s_admin =
+{
+    .substate = ADMIN_VIEW_USERS, .cursor = 0U, .usuario_sel = 0U,
+    .f_creando_usuario = false, .f_refrescar = true
+};
+\end{lstlisting}
+
+De forma análoga, todos los estados con pantalla temporizada (acceso
+concedido, error, bloqueo, ID duplicado) comparten \emph{una sola}
+instancia de un cronómetro genérico, porque nunca hay dos activos al mismo
+tiempo:
+
+\begin{lstlisting}[caption={Cronómetro genérico reutilizado por todos los estados temporizados.}, label={lst:cronometro}]
+typedef struct
+{
+    bool     f_activo;
+    uint32_t inicio_ms;
+    uint8_t  fase;      /* 0 = mensaje fijo, 1 = animacion (segun el estado) */
+} cronometro_t;
+\end{lstlisting}
+
+
+% =============================================================================
+\section{Temporización no bloqueante}
+% =============================================================================
+
+Todo el firmware evita \lstinline{delay()} bloqueantes: los estados
+temporizados comparan la marca de tiempo guardada contra
+\lstinline{HAL_GetTick()} en cada vuelta del súper-loop. Esto permite que
+el sistema siga respondiendo a la interfaz (encoder, lector) mientras, por
+ejemplo, se muestra el mensaje de acceso concedido.
+
+\begin{lstlisting}[caption={Patrón de temporización no bloqueante en \texttt{SubFSM\_Acceso\_OK()}.}, label={lst:accesook}]
+static fsm_state_t SubFSM_Acceso_OK(fsm_event_t evento)
+{
+    uint32_t transcurrido;
+
+    if (s_cron.f_activo == false)
+    {
+        s_cron.f_activo  = true;
+        s_cron.inicio_ms = HAL_GetTick();
+        HAL_Message_Disp("OPEn");
+        HAL_Buzzer_On();
+    }
+
+    transcurrido = HAL_GetTick() - s_cron.inicio_ms;
+
+    if (transcurrido >= FSM_MS_ACCESO_TOTAL)
+    {
+        s_cron.f_activo = false;
+        HAL_Buzzer_Off();
+        FSM_Init();
+        return STATE_STANDBY;
+    }
+    return STATE_ACCESO_OK;
+}
+\end{lstlisting}
+
+
+% =============================================================================
+\section{Ventana deslizante para buffers más largos que el display}
+% =============================================================================
+
+El display físico tiene 4 dígitos, pero el ID a ingresar tiene 8 y el PIN
+hasta 5. La función \lstinline{Mostrar_VentanaIngreso} resuelve esto
+dibujando un recorte de 4 posiciones del buffer lógico que se corre a
+medida que el cursor avanza, de forma que el dígito en edición quede
+\emph{siempre} visible en la última posición física una vez que el cursor
+sale de las primeras 4.
+
+\begin{lstlisting}[caption={Ventana deslizante: proyecta un buffer lógico largo sobre 4 dígitos físicos.}, label={lst:ventana}]
+static void Mostrar_VentanaIngreso(const uint8_t *buffer, uint8_t cursor, bool f_oculto)
+{
+    uint8_t ancho  = HAL_Display_GetDigits();
+    uint8_t offset = (cursor >= ancho) ? (uint8_t)(cursor - ancho + 1U) : 0U;
+    uint8_t p;
+
+    HAL_Blink_Digit_Disp(ALL, STOP);
+
+    for (p = 0U; p < ancho; p++)
+    {
+        uint8_t logico = (uint8_t)(p + offset);
+
+        if (logico < cursor)
+        {
+            /* Ya confirmado: oculto ('-') para PIN, valor real para ID. */
+            HAL_Send_Digit_Disp(p, f_oculto ? (disp_char_t)'-'
+                                            : Glifo_FSM(buffer[logico]));
+        }
+        else if (logico == cursor)
+        {
+            /* Cursor: siempre descubierto y titilando. */
+            HAL_Send_Digit_Disp(p, Glifo_FSM(buffer[logico]));
+            HAL_Blink_Digit_Disp(p, START);
+        }
+        else
+        {
+            HAL_Clear_Digit_Disp(p);
+        }
+    }
+}
+\end{lstlisting}
+
+
+% =============================================================================
+\section{Secciones críticas en el driver de display}
+% =============================================================================
+
+El driver de display expone su API pública desde el contexto de la
+aplicación, pero el contenido de la pantalla también lo modifica
+\lstinline{HAL_Refresh_Task()}, que corre dentro de la ISR del
+\lstinline{SysTick}. Para que ninguna de las dos partes vea una VRAM a
+medio escribir, toda función pública protege su acceso con una sección
+crítica mínima basada en \lstinline{PRIMASK}:
+
+\begin{lstlisting}[caption={Sección crítica mínima usando \texttt{PRIMASK} (\texttt{display.c}).}, label={lst:critsection}]
+static inline uint32_t disp_lock(void)
+{
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    return primask;
+}
+
+static inline void disp_unlock(uint32_t primask)
+{
+    __set_PRIMASK(primask);
+}
+
+void HAL_Clear_Digit_Disp(uint8_t target)
+{
+    uint32_t key = disp_lock();
+    /* ... modifica vram[] y s_blink.mascara ... */
+    disp_unlock(key);
+}
+\end{lstlisting}
+
+Guardar y restaurar el \lstinline{PRIMASK} (en vez de simplemente
+deshabilitar y rehabilitar las interrupciones) hace que estas secciones
+críticas sean anidables sin efectos secundarios: si una función protegida
+llama a otra función protegida, la interna no reabre las interrupciones
+antes de tiempo.
+
+Por requisito de la cátedra, el pin \lstinline{PIN_TEST_ISR} se pone en
+alto mientras corre la ISR de refresco, lo que permite medir con
+osciloscopio su tiempo de ejecución real:
+
+\begin{lstlisting}[caption={Instrumentación para medir la duración de la ISR con osciloscopio.}, label={lst:testpin}]
+void HAL_Refresh_Task(void)
+{
+#if (DISPLAY_USE_TEST_PIN != 0)
+    gpioWrite(PIN_TEST_ISR, HIGH);
+#endif
+    /* ... bit-banging de la trama hacia los 74HC595 ... */
+#if (DISPLAY_USE_TEST_PIN != 0)
+    gpioWrite(PIN_TEST_ISR, LOW);
+#endif
+}
+\end{lstlisting}
+
+
+% =============================================================================
+\section{Despacho genérico de interrupciones de GPIO}
+% =============================================================================
+
+El MCAL implementa un mecanismo de callbacks por pin para las interrupciones
+de puerto, en vez de que cada handler conozca de antemano qué pines usa
+cada driver. Una tabla de $5 \times 32$ punteros a función (un puerto, 32
+pines) permite que cualquier módulo (encoder, lector de tarjetas) se
+registre con \lstinline{gpioIRQ()} sin que el MCAL sepa qué hace ese
+callback.
+
+\begin{lstlisting}[caption={Tabla de callbacks y despacho genérico de IRQ de puerto (\texttt{gpio.c}).}, label={lst:gpioirq}]
+static pinIrqFun_t irq_callbacks[5][32] = {0};
+
+static void gpioIRQDispatch(uint8_t portId)
+{
+    uint32_t flags = port_ptrs[portId]->ISFR;
+    uint8_t  i;
+
+    for (i = 0U; i < 32U; i++)
+    {
+        if ((flags & (1UL << i)) != 0UL)
+        {
+            port_ptrs[portId]->ISFR = (1UL << i);   /* se limpia escribiendo 1 */
+
+            if (irq_callbacks[portId][i] != 0)
+            {
+                irq_callbacks[portId][i]();
+            }
+        }
+    }
+}
+
+void PORTB_IRQHandler(void) { gpioIRQDispatch(PB); }
+\end{lstlisting}
+
+Un detalle importante de la implementación es limpiar el flag de
+interrupción \emph{antes} de invocar al callback: si se limpiara después,
+un flanco nuevo que llegue mientras corre el callback se perdería junto
+con el flag viejo.
+
+
+% =============================================================================
+\section{Driver del lector de banda magnética}
+% =============================================================================
+
+El driver del lector separa deliberadamente la parte \emph{urgente} de la
+\emph{costosa}: la ISR de \lstinline{CLOCK} sólo guarda un bit por
+interrupción (mínima y determinística), mientras que la decodificación de
+la trama Track~2 completa (búsqueda de sentinelas, chequeo de paridad) se
+hace en el lazo principal, nunca dentro de una ISR.
+
+\begin{lstlisting}[caption={ISR mínima: un bit por interrupción (\texttt{lector.c}).}, label={lst:irqclk}]
+void IRQ_CardClk()
+{
+    bitarray[currbit++] = !gpioRead(PIN_CARD_DATA); /* DATA es activo bajo */
+    if (currbit >= MAX_BIT_LENGTH)
+    {
+        status = LECTOR_TIMEOUT;
+        gpioIRQ(PIN_CARD_CLK, GPIO_IRQ_MODE_DISABLE, IRQ_CardClk);
+    }
+}
+\end{lstlisting}
+
+Un problema real detectado en la placa: el pin \lstinline{ENABLE} del
+lector puede rebotar mecánicamente al apoyar la tarjeta, generando un pulso
+cortísimo que la ISR interpreta como un swipe completo con 0--3 bits
+capturados. Sin validación, esos bits (basura de una lectura anterior) se
+interpretaban como una tarjeta real. La solución fue exigir una cantidad
+mínima de bits capturados antes de aceptar la lectura como válida:
+
+\begin{lstlisting}[caption={Rechazo de rebotes de \texttt{ENABLE} por cantidad insuficiente de bits (\texttt{lector.c}).}, label={lst:bounce}]
+#define MIN_VALID_BITS 30
+/* Una trama valida de track 2 con el ID de 8 digitos ronda los 50+ bits;
+ * un rebote deja 0-3 bits. Margen generoso. */
+
+void IRQ_CardEnable()
+{
+    /* ... flanco de bajada: arranca el swipe ... */
+    else
+    {
+        /* Flanco de subida: termino el swipe. */
+        gpioIRQ(PIN_CARD_CLK, GPIO_IRQ_MODE_DISABLE, IRQ_CardClk);
+
+        if (currbit < MIN_VALID_BITS)
+        {
+            /* Rebote de ENABLE o ruido: se descarta aca mismo, sin pasar
+             * por RECIEVED, para que nunca se vea como un intento de
+             * lectura fallido en la aplicacion. */
+            status = LECTOR_WAITING;
+            return;
+        }
+        status = LECTOR_RECIEVED;
+    }
+}
+\end{lstlisting}
+
+
+% =============================================================================
+\section{Prioridades de interrupción ajustadas por timing}
+% =============================================================================
+
+La ISR del \lstinline{SysTick} (que hace el \textit{bit-banging} de la
+trama del display) es la más larga del sistema. Si tuviera la misma
+prioridad que la IRQ del puerto del lector de tarjetas, podría retrasar la
+captura de un flanco de \lstinline{CLOCK} durante el swipe y perder un
+bit. La solución fue bajarle la prioridad al SysTick para que la IRQ del
+lector siempre pueda interrumpirlo:
+
+\begin{lstlisting}[caption={Ajuste de prioridad de interrupción documentado en \texttt{App\_Init()}.}, label={lst:priority}]
+/* La ISR del SysTick (bit-banging del display + encoder) es la mas larga
+ * del sistema y, con la misma prioridad que PORTB (0 por defecto ambas),
+ * retrasaria la captura de cada bit del lector. Se le baja la prioridad
+ * al SysTick para que los flancos de CLOCK la puedan interrumpir siempre. */
+HAL_Scheduler_SetPriority(APP_NVIC_PRIO_SYSTICK);   /* APP_NVIC_PRIO_SYSTICK = 1 */
+inicializarLector();                                /* PORTB queda en prioridad 0 (default) */
+\end{lstlisting}
+
+Esta decisión se verificó de forma empírica con osciloscopio, comparando
+el pin de instrumentación de la ISR (\lstinline{PIN_TEST_ISR}) contra el
+pin \lstinline{ENABLE} del lector durante un swipe real, confirmando que
+ningún pulso de la ISR del SysTick bloquea una ventana donde debería
+llegar un bit del lector.
+
+\end{document}
