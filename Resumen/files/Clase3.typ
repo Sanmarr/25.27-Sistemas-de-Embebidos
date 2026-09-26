@@ -178,7 +178,7 @@ void SysTick_Handler(void) {
 }
 ```
 
-= 3. Patrón de Arquitectura: Despachador de Tareas Periódicas
+= Patrón de Arquitectura: Despachador de Tareas Periódicas
 
 Para evitar configurar múltiples timers de hardware para cada tarea ligera, el SysTick actúa como una *base de tiempo compartida* mediante el registro de callbacks (*Scheduler* / Fachada HAL).
 

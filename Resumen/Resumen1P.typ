@@ -121,13 +121,13 @@
     #text(size: 9pt, weight: "bold")[Apunte teórico-práctico basado en el contenido de clase y bibliografía oficial]
   ]
 ]
-/*
+
 #v(1em)
 
 #outline()
 
 #v(1em)
-*/
+
 #pagebreak()
 #include "files/Clase1.typ"
 
@@ -142,3 +142,6 @@
 
 #pagebreak()
 #include "files/Clase5.typ"
+
+#pagebreak()
+#include "files/Clase6.typ"

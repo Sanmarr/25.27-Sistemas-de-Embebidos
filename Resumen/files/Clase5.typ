@@ -1,240 +1,253 @@
+
 // ==========================================
 // FUNCIONES DE CUADROS DIDÁCTICOS (CALLOUTS)
 // ==========================================
 
-#let cuadro-concepto(titulo:[Concepto Clave], cuerpo) = block(
+#let cuadro-concepto(titulo: [Concepto Clave], cuerpo) = block(
   width: 100%, inset: 10pt, radius: 4pt,
   fill: rgb("#e8f4f8"), stroke: (left: 4pt + rgb("#1b6ec2")),
-[
+  [
     #text(weight: "bold", fill: rgb("#104e8b"), size: 10.5pt)[💡 #titulo] \
     #v(0.4em)
     #cuerpo
   ]
 )
 
-#let cuadro-ejemplo(titulo:[Ejemplo Práctico], cuerpo) = block(
+#let cuadro-ejemplo(titulo: [Ejemplo Práctico], cuerpo) = block(
   width: 100%, inset: 10pt, radius: 4pt,
   fill: rgb("#eafaf1"), stroke: (left: 4pt + rgb("#2ecc71")),
-[
+  [
     #text(weight: "bold", fill: rgb("#1e8449"), size: 10.5pt)[🛠️ #titulo] \
     #v(0.4em)
     #cuerpo
   ]
 )
 
-#let cuadro-atencion(titulo:[¡Atención / Cuidado!], cuerpo) = block(
+#let cuadro-atencion(titulo: [¡Atención / Cuidado!], cuerpo) = block(
   width: 100%, inset: 10pt, radius: 4pt,
   fill: rgb("#fdf2e9"), stroke: (left: 4pt + rgb("#e67e22")),
-[
+  [
     #text(weight: "bold", fill: rgb("#a04000"), size: 10.5pt)[⚠️ #titulo] \
     #v(0.4em)
     #cuerpo
   ]
 )
 
-#let cuadro-registro(titulo:[Detalle Técnico / Registro], cuerpo) = block(
+#let cuadro-registro(titulo: [Detalle Técnico / Registro], cuerpo) = block(
   width: 100%, inset: 10pt, radius: 4pt,
   fill: rgb("#f4ecf7"), stroke: (left: 4pt + rgb("#8e44ad")),
-[
+  [
     #text(weight: "bold", fill: rgb("#5b2c6f"), size: 10.5pt)[⚙️ #titulo] \
     #v(0.4em)
     #cuerpo
   ]
 )
 
-= Fundamentos de la Comunicación Serial Asincrónica (UART)
+= Fundamentos de Comunicación Serial vs. Paralela
 
-La *UART* (*Universal Asynchronous Receiver-Transmitter*) es el módulo periférico encargado de traducir datos en paralelo (bytes dentro de la CPU) a un flujo secuencial de bits que viajan por una sola línea física de transmisión (TX) y se reciben por otra de recepción (RX).
-
-== Estructura de la Trama UART Estándar
-A diferencia de los protocolos sincrónicos (donde viaja una señal de reloj compartida), la UART es *asincrónica*: emisor y receptor acuerdan previamente una velocidad común llamada *Baud Rate* (bits por segundo, bps).
-
-#cuadro-concepto(titulo:[Anatomía de una Trama de Datos])[
-  - *Estado Reposo (Idle):* La línea física permanece en nivel lógico *HIGH (1)*.
-  - *Start Bit (1 bit):* Transición de `1` a `0` (flanco de bajada) que indica al receptor el inicio inminente de un byte.
-  - *Bits de Datos (8 o 9 bits):* Se envían secuencialmente empezando *siempre por el bit menos significativo (LSB primero)*.
-  - *Bit de Paridad (Opcional):* Bit de verificación de redundancia (paridad PAR o IMPAR) para detectar corrupción en la línea.
-  - *Stop Bit (1 o 2 bits):* Retorno de la línea a nivel lógico *HIGH (1)* para finalizar el frame y restablecer el reposo.
-]
-
-#v(0.5em)
+La transmisión de datos en sistemas embebidos entre el microcontrolador y periféricos externos (sensores, módulos de comunicación, PCs o pantallas) se clasifica en dos arquitecturas fundamentales:
 
 #table(
-  columns: (1.5fr, 1fr, 3fr, 1.2fr, 1.5fr),
+  columns: (1.2fr, 2fr, 2fr),
   inset: 6pt,
   stroke: 0.5pt + luma(180),
   fill: (_, y) => if y == 0 { rgb("#0f2b48") } else if calc.odd(y) { rgb("#f9f9f9") },
-  align: (center, center, center, center, center),
+  align: (left, left, left),
   table.header(
-  [ *IDLE* ],[ *START* ],[ *BITS DE DATOS (D0 .. D7)* ],[ *PARIDAD* ],[ *STOP* ]
+    [*Parámetro*], [*Comunicación Paralela*], [*Comunicación Serial*]
   ),
-[ Nivel HIGH (`1`) ],[ `0` (1 bit) ],[ LSB primero $ -> $ MSB último (8 bits) ],[ Opcional ],[ Nivel HIGH (`1`) ]
+  [*Líneas Físicas*], [Múltiples líneas de datos (8, 16, 32 bits simultáneos).], [Líneas reducidas (1 línea TX, 1 línea RX + GND).],
+  [*Costo y Pines*], [Alto número de pines de I/O y cables voluminosos.], [Mínimo uso de pines; conectores y cables económicos.],
+  [*Distancia y Ruido*], [Limitado a distancias muy cortas por *skew* de reloj y acoplamiento capacitivo.], [Alta inmunidad al ruido; ideal para distancias cortas y largas.],
+  [*Ancho de Banda*], [Elevado en distancias muy cortas.], [Muy alto a altas frecuencias con transceptores adecuados.]
 )
 
-== Estándares Eléctricos y Conversión de Niveles
+== Comunicación Sincrónica vs. Asincrónica
 
-El microcontrolador Kinetis K64F opera externamente con niveles *TTL / CMOS (0V = '0', 3.3V = '1')*. Para interconectarse con computadoras u otros sistemas industriales se requieren integrados conversores:
+- *Sincrónica (SPI, I2C):* Existe una línea física explícita de reloj (*Clock*) provista por un máster para sincronizar la lectura de los bits en emisor y receptor.
+- *Asincrónica (UART):* No existe línea física de reloj. Emisor y receptor acuerdan previamente una velocidad fija (*Baud Rate*) y sincronizan sus relojes locales mediante el formato de una trama estructurada (*Start/Stop bits*).
 
-#grid(
-  columns: (1fr, 1fr),
-  gutter: 12pt,
-[
-    #cuadro-concepto(titulo:[Norma RS-232])[
-      - Utiliza lógica invertida con altos voltajes:
-        - `'0'` lógico: $+3"V"$ a $+15"V"$
-        - `'1'` lógico: $-3"V"$ a $-15"V"$
-      - Requiere un chip transceptor (ej. MAX232) para adaptar los niveles eléctricos a los $3.3"V"$ del microcontrolador.
-    ]
-  ],
-[
-    #cuadro-concepto(titulo:[Interfaz USB-UART (OpenSDA)])[
-      - La placa *FRDM-K64F* incluye un segundo chip microcontrolador configurado como interfaz *OpenSDA*.
-      - Convierte las señales RX/TX del puerto `UART0` en un puerto COM virtual USB para la PC.
-    ]
-  ]
-)
-
-= Cálculo y Ajuste Fino del Baud Rate en Kinetis K64F
-
-Para lograr un muestreo preciso sin deriva temporal en comunicaciones asincrónicas, el K64F dispone de una arquitectura de división de reloj con *ajuste grueso ($"SBR"$)* y *ajuste fino ($"BRFA"$)*.
-
-== Fórmula Matemática del Baud Rate
-
-$ "Baud Rate" = "UART_Clock" / (16 times ("SBR" + "BRFA" / 32)) $
-
-#cuadro-registro(titulo:[Campos de Registros para el Baud Rate])[
-  1. *Modulo Baud Rate $"SBR"$ (13 bits):*
-     - Dividido en dos registros: `UARTx->BDH` (bits[12:8] altos) y `UARTx->BDL` (bits[7:0] bajos).
-     - Valor entero de división gruesa: $"SBR" = floor("UART_Clock" / (16 times "Baud Rate"))$.
-  2. *Baud Rate Fine Adjust $"BRFA"$ (5 bits):*
-     - Ubicado en los bits[4:0] del registro `UARTx->C4`.
-     - Permite ajustar la parte fraccionaria multiplicando el residuo decimal por $32$:
-       $ "BRFA" = "round"((("UART_Clock" / (16 times "Baud Rate")) - "SBR") times 32) $
+#cuadro-concepto(titulo: [Bit Banging vs. Periférico Hardware])[
+  - *Bit Banging:* Simular la transmisión serie por software conmutando manualmente pines GPIO mediante delays o timers. Consume valiosos ciclos de CPU y es propenso a fluctuaciones de tiempo (*jitter*).
+  - *Periférico Dedicado (UART):* Módulo de hardware integrado que realiza la conversión paralelo-serie y serie-paralelo de forma autónoma mediante registros de desplazamiento y buffers, liberando a la CPU.
 ]
 
-#cuadro-ejemplo(titulo:[Ejemplo de Cálculo para 115200 Baudios a 60 MHz])[
-  Si el reloj asignado al periférico UART es $f_"bus"= 60"MHz"$ y se requiere operar a $115200 "baudios"$:
-  1. $"Divisor Teórico" = 60 times 10^6 / (16  times 115200) = 32.55208$
+= 2. Anatomía Completa de la Trama UART (Protocolo 8N1)
 
-  2. $"SBR" = 32 -> "Escribir" 32 "en" "BDL" ("BDH"=0)$.
+En reposo, la línea de transmisión se mantiene en nivel lógico ALTO ($1$). La trama estándar *8N1* (8 bits de datos, sin paridad, 1 bit de stop) se compone secuencialmente de:
 
-  3. $"Parte Fraccionaria" = 0.55208  times 32 = 17.666 -> "BRFA" = 18   ("Escribir" 18 "en" "C4")$.
+#cuadro-registro(titulo: [Campos Secuenciales de la Trama UART])[
+  1. *Línea en Reposo (Idle):* Permanece en nivel lógico *ALTO (1 / $V_"DD"$)*.
+  2. *Bit de Start:* Un pulso de nivel *BAJO (0 / GND)* de duración exacta de 1 tiempo de bit ($T_"bit"$) que avisa al receptor del inicio de datos.
+  3. *Carga Útil (Payload / Data Bits):* Se transmiten de 5 a 8 bits de datos, enviando siempre el *bit menos significativo (LSB) primero*.
+  4. *Bit de Paridad (Opcional - Par/Impar/Ninguna):* Bit de control para detección de errores simples de bit.
+  5. *Bit(s) de Stop:* Uno o dos bits en nivel *ALTO (1 / $V_"DD"$)* que marcan el cierre de la trama y retornan la línea a reposo.
 ]
 
-= 3. Registros de Datos, Estado y Control del Periférico (`UARTx`)
+== Eficiencia de Canal y Muestreo por Sobremuestreo
 
-En el SDK de NXP / CMSIS, la comunicación UART se controla a través de la estructura `UART_Type`.
+En una trama estándar 8N1 se envían 10 bits totales para transmitir 8 bits útiles de información:
+
+$ "Eficiencia" = (8 "bits útiles") / (10 "bits totales") = 80 "%" $
+
+$ T_"bit" = 1 / "Baud Rate" quad ==> quad "A 9600 bps: " T_"bit" = 1 / 9600 approx 104.16 mu "s" $
+
+#cuadro-atencion(titulo: [Sobremuestreo 16x y Tolerancia de Sincronismo])[
+  El receptor detecta el flanco descendente del bit de Start y sobremuestrea la línea *$16 times$* más rápido que el Baud Rate. Muestrea el nivel de tensión en el *centro teórico de cada bit ($0.5 times T_"bit"$)* para maximizar el margen de ruido.
+  
+  *Tolerancia Máxima:* Dado que emisor y receptor poseen cristales independientes, un desfasaje acumulado mayor al *$2.5 "%"$* entre ambos relojes provoca la lectura incorrecta del bit de Stop, generando un error de trama (*Framing Error - FE*).
+]
+
+= Capa Física, Estándares Eléctricos y Control de Flujo
+
+La salida nativa del microcontrolador opera en niveles *TTL/CMOS (0V a 3.3V)*. Para comunicarse con computadoras o equipos industriales se requieren adaptadores de capa física:
 
 #table(
-  columns: (1.5fr, 1.2fr, 3.5fr),
+  columns: (1.2fr, 2fr, 2fr),
   inset: 6pt,
   stroke: 0.5pt + luma(180),
-  fill: (_, y) => if y == 0 { rgb("#0f2b48") } else if calc.odd(y) { rgb("#f9f9f9") },
-  align: (left, center, left),
+  fill: (_, y) => if y == 0 { rgb("#1a5fb4") } else if calc.odd(y) { rgb("#f4f7fa") },
+  align: (left, left, left),
   table.header(
-  [ *Registro* ],[ *Modo* ],[ *Descripción y Uso Técnico* ]
+    [*Estándar*], [*Niveles de Tensión*], [*Características / Uso*]
   ),
-[ `UARTx->D` ],[ R / W ],[ *Registro de Datos:* Físicamente son dos buffers separados. Escribir en `D` coloca el byte en la cola de transmisión. Leer `D` retira el byte recibido de la cola de recepción. ],
-[ `UARTx->S1` ],[ R / w1c ],[ *Status Register 1:* Contiene las banderas de estado del periférico (`TDRE`, `TC`, `RDRF`). ],
-[ `UARTx->C2` ],[ R / W ],[ *Control Register 2:* Habilita el transmisor (`TE`), receptor (`RE`) e interrupciones (`TIE`, `RIE`). ],
-[ `UARTx->C4` ],[ R / W ],[ *Control Register 4:* Contiene el ajuste fino de reloj (`"BRFA"`) y control de la FIFO. ]
+  [*TTL / CMOS*], [$0 "V" = 0$, $3.3 "V" / 5 "V" = 1$], [Conexiones punto a punto dentro de la misma placa a corta distancia.],
+  [*RS-232*], [$+3 "V" " a " +15 "V" = 0$ (Space), \ $-3 "V" " a " -15 "V" = 1$ (Mark)], [Lógica invertida de alta tensión. Requiere transceptor como MAX232. Inmunidad a interferencias.],
+  [*USB-Serial (OpenSDA)*], [Conversión USB CDC Virtual COM], [Integrado en FRDM-K64F. Permite ver la UART en la PC mediante terminales (PuTTY, TeraTerm).],
+  [*Comandos AT*], [Lógica de texto sobre UART (`AT`, `AT+CSQ`)], [Estándar de configuración para módulos Bluetooth (HC-05), GSM (SIM800) y GPS.]
 )
 
-== Banderas Clave de Estado (`UARTx->S1`)
+== Control de Flujo por Software (XON / XOFF)
 
-#grid(
-  columns: (1fr, 1fr, 1fr),
-  gutter: 8pt,
-[
-    #cuadro-concepto(titulo:[1. `RDRF` (Bit 5)])[
-      *Receive Data Register Full:*
-      Se pone en `1` por hardware cuando ha ingresado un nuevo byte completo a la UART.
-      *Limpieza:* Se limpia automáticamente al *leer `S1` y luego leer `D`*.
-    ]
-  ],
-[
-    #cuadro-concepto(titulo:[2. `TDRE` (Bit 7)])[
-      *Transmit Data Register Empty:*
-      Se pone en `1` cuando el buffer de transmisión está libre para recibir un nuevo byte.
-      *Limpieza:* Se limpia automáticamente al *leer `S1` y luego escribir en `D`*.
-    ]
-  ],
-[
-    #cuadro-concepto(titulo:[3. `TC` (Bit 6)])[
-      *Transmission Complete:*
-      Se pone en `1` cuando *el último bit salió físicamente del pin TX*.
-      *Uso:* Indispensable para transceptores RS-485 / RS-422 antes de cortar la línea.
-    ]
-  ]
-)
+Cuando el receptor no puede procesar los datos a la velocidad que los recibe, utiliza *Control de Flujo por Software*:
+- *XOFF (`0x13` / Ctrl+S):* Enviado por el receptor para ordenar al emisor pausar la transmisión.
+- *XON (`0x11` / Ctrl+Q):* Enviado por el receptor cuando vuelve a tener espacio disponible en el buffer para reanudar la transmisión.
 
-= 4. Arquitectura de Firmware e Interrupciones en UART
+= Colas Circulares (Ring Buffers) e Interrupciones
 
-Debido a que el tiempo de transmisión de un byte a $9600 "baudios"$ toma aproximadamente $1.04"ms"$ (un abismo en ciclos de CPU a $120"MHz"$), *nunca se debe utilizar código bloqueante en sistemas de tiempo real*.
+Existe una clara *asimetría temporal* entre la transmisión y la recepción:
+- *Recepción (RX):* Es crítica e impredecible. Si no se lee el dato de inmediato cuando llega, el siguiente byte entrante lo sobrescribirá, causando un error de sobreescritura (*Overrun Error - OR*).
+- *Transmisión (TX):* No es crítica. Si se demora el envío, únicamente se pierde velocidad de transmisión.
 
-== Estrategia de Interrupciones Compartidas (RX / TX Vector)
-En el K64F, las interrupciones de transmisión y recepción de un mismo canal UART están *multiplexadas en un único vector de la IVT* (por ejemplo `UART0_RX_TX_IRQn`). Por lo tanto, la ISR debe consultar el registro `S1` para identificar la causa:
-
-#cuadro-ejemplo(titulo:[Estructura Canónica de una ISR de UART])[
-  ```c
-  void UART0_RX_TX_IRQHandler(void) {
-      uint8_t status = UART0->S1;
-
-      // 1. ATENDER RECEPCIÓN (RDRF = 1)
-      if (status & UART_S1_RDRF_MASK) {
-          uint8_t data = UART0->D; // La lectura de D limpia el flag RDRF de forma automática
-          RingBuffer_Put(&rx_queue, data);
-      }
-
-      // 2. ATENDER TRANSMISIÓN (TDRE = 1 y TIE habilitado)
-      if ((status & UART_S1_TDRE_MASK) && (UART0->C2 & UART_C2_TIE_MASK)) {
-          uint8_t tx_data;
-          if (RingBuffer_Get(&tx_queue, &tx_data)) {
-              UART0->D = tx_data; // La escritura en D limpia el flag TDRE
-          } else {
-              // Si no quedan datos para enviar, deshabilitar TIE para evitar un loop infinito de IRQs
-              UART0->C2 &= ~UART_C2_TIE_MASK;
-          }
-      }
-  }
-  ```
+#cuadro-concepto(titulo: [Solución: Colas Circulares Orientadas a Interrupción])[
+  Para evitar código bloqueante, la ISR de recepción guarda los bytes inmediatamente en una *Cola Circular (Ring Buffer)* en memoria RAM. El programa principal (*Main Loop*) consume los datos de la cola a su propio ritmo.
 ]
 
-#v(0.5em)
+== Código C Didáctico de una Cola Circular (`RingBuffer`)
 
-#cuadro-atencion(titulo:[Regla Crítica: Habilitación Dinámica de `TIE`])[
-  A diferencia de la interrupción de recepción (`RIE`), la interrupción por buffer libre (`TIE`) *nunca debe dejarse habilitada de forma permanente*. Dado que el registro `D` permanece vacío la mayor parte del tiempo, si `TIE` se mantiene activo, la CPU caerá en un *bucle infinito de interrupciones de transmisión*.
+```c
+#define RING_BUFFER_SIZE 64
 
-  *Mecanismo Correcto:* `TIE` solo se activa por software en la función de envío cuando se encola un nuevo dato, y la propia ISR se encarga de apagar `TIE` cuando la cola de transmisión queda vacía.
+typedef struct {
+    uint8_t buffer[RING_BUFFER_SIZE];
+    uint16_t in;    // Puntero de entrada (escritura ISR)
+    uint16_t out;   // Puntero de salida (lectura APP)
+    uint16_t count; // Cantidad de elementos almacenados
+} RingBuffer_t;
+
+void RingBuffer_Init(RingBuffer_t *rb) {
+    rb->in = 0;
+    rb->out = 0;
+    rb->count = 0;
+}
+
+bool RingBuffer_Push(RingBuffer_t *rb, uint8_t data) {
+    if (rb->count >= RING_BUFFER_SIZE) return false; // Buffer Lleno
+    rb->buffer[rb->in] = data;
+    rb->in = (rb->in + 1) % RING_BUFFER_SIZE;
+    rb->count++;
+    return true;
+}
+
+bool RingBuffer_Pull(RingBuffer_t *rb, uint8_t *data) {
+    if (rb->count == 0) return false; // Buffer Vacío
+    *data = rb->buffer[rb->out];
+    rb->out = (rb->out + 1) % RING_BUFFER_SIZE;
+    rb->count--;
+    return true;
+}
+```
+
+= Mapeo de Registros y Cálculo Fraccional de Baud Rate en Kinetis K64F
+
+El Kinetis K64F cuenta con 6 módulos UART (`UART0` a `UART5`):
+- `UART0` y `UART1`: Alimentados desde el *System Clock* ($f_"core"$ hasta 100 MHz).
+- `UART2` a `UART5`: Alimentados desde el *Bus Clock* ($f_"bus"$ hasta 50 MHz).
+
+#cuadro-registro(titulo: [Fórmula Exacta del Baud Rate Fraccional])[
+  El generador de Baud Rate utiliza un divisor grueso de 13 bits (`SBR` dividido entre los registros `BDH` y `BDL`) y un ajuste fino fraccional de 5 bits (`BRFA` en el registro `C4`):
+
+  $ "Baud Rate" = "UART_CLK" / (16 times ("SBR" + "BRFA" / 32)) $
+
+  - *Cálculo de SBR:* $"SBR" = "floor"("UART_CLK" / (16 times "Baud Rate"))$
+  - *Cálculo de BRFA:* "BRFA" = "round"((("UART_CLK" / (16 times "Baud Rate")) - SBR) times 32)
 ]
 
-= 5. Colas de Hardware (FIFOs) y Configuración de Watermark
+= Control de Registros, FIFOs y Driver UART Completo en C
 
-Para aplicaciones con tráfico de datos intensivo a altas velocidades (ej. $1"Mbps"$), la arquitectura del Kinetis K64F incluye *FIFOs de hardware* independientes para TX y RX de hasta 8 bytes de capacidad.
+== Registros de Control y Estado
+- *`UARTx_C1`:* Configura formato de trama (8/9 bits, paridad).
+- *`UARTx_C2`:* Habilita transmisor (`TE`), receptor (`RE`), interrupción por transmisión libre (`TIE`) e interrupción por recepción llena (`RIE`).
+- *`UARTx_S1`:* Almacena los flags de estado principales (`TDRE`, `TC`, `RDRF`, `IDLE`, `OR`, `NF`, `FE`, `PF`).
+- *`UARTx_D`:* Registro de datos de entrada/salida.
 
-== Concepto de Marca de Agua (Watermark)
-La marca de agua (*Watermark*) permite programar el umbral exacto de llenado o vaciado de la FIFO que disparará la interrupción, reduciendo drásticamente la cantidad de llamadas a la ISR:
-
-#grid(
-  columns: (1fr, 1fr),
-  gutter: 10pt,
-[
-    #cuadro-concepto(titulo:[Watermark en Recepción (`RWFIFO`)])[
-      - Determina cuántos bytes deben acumularse en la FIFO de recepción antes de generar la IRQ.
-      - *Ejemplo:* Si `RWFIFO = 4`, la CPU solo es interrumpida cuando la FIFO ha almacenado 4 bytes, procesándolos todos en una sola entrada a la ISR.
-    ]
-  ],
-[
-    #cuadro-concepto(titulo:[Watermark en Transmisión (`TWFIFO`)])[
-      - Determina cuántas posiciones libres deben quedar en la FIFO de transmisión para solicitar recarga.
-      - *Ejemplo:* Permite a la ISR rellenar hasta 8 bytes consecutivos de un tiro mediante una ráfaga (*burst*).
-    ]
-  ]
-)
-
-#v(0.5em)
-
-#cuadro-registro(titulo:[Habilitación de FIFOs en `UARTx->PFIFO`])[
-  - *`TXFE` / `RXFE` (Bits 7 y 3):* Habilitan la FIFO de transmisión y recepción respectivamente.
-  - *`TXFIFOSIZE` / `RXFIFOSIZE`:* Informan la capacidad física de hardware soportada por el canal de la UART ($2^"SIZE"$ bytes).
+#cuadro-atencion(titulo: [Secuencia de Doble Lectura para Limpiar Banderas])[
+  En los módulos UART de Kinetis, la bandera `RDRF` (o `TDRE`) *no se limpia escribiendo un 1*. Se limpia ejecutando la secuencia estricta por hardware:
+  1. *Primero:* Leer el registro de estado `UARTx_S1`.
+  2. *Segundo:* Leer (o escribir) el registro de datos `UARTx_D`.
 ]
+
+== Configuración de FIFOs de Hardware
+Las UARTs disponen de FIFOs de hardware (`PFIFO`, `TWFIFO`, `RWFIFO`) que permiten configurar marcas de agua (*watermarks*). Por ejemplo, `RWFIFO = 1` genera la interrupción `RDRF` en cuanto ingresa al menos 1 byte en la FIFO de recepción.
+
+== Código C Completo del Driver UART0 Orientado a Interrupciones
+
+```c
+#include "MK64F12.h"
+#include <stdbool.h>
+
+static RingBuffer_t rx_buffer;
+
+void UART0_Init(uint32_t baud_rate) {
+    // 1. Clock Gating para UART0 y PORTB
+    SIM->SCGC4 |= SIM_SCGC4_UART0_MASK;
+    SIM->SCGC5 |= SIM_SCGC5_PORTB_MASK;
+
+    // 2. Multiplexación de pines PTB16 (RX) y PTB17 (TX) en ALT3
+    PORTB->PCR[16] = PORT_PCR_MUX(3);
+    PORTB->PCR[17] = PORT_PCR_MUX(3);
+
+    // 3. Deshabilitar Transmisor y Receptor antes de configurar
+    UART0->C2 &= ~(UART_C2_TE_MASK | UART_C2_RE_MASK);
+
+    // 4. Configurar Baud Rate (Ejemplo simplificado para 9600 bps a 100 MHz)
+    uint16_t sbr = (uint16_t)(100000000 / (16 * baud_rate));
+    UART0->BDH = (sbr >> 8) & UART_BDH_SBR_MASK;
+    UART0->BDL = sbr & UART_BDL_SBR_MASK;
+    UART0->C4 = (UART0->C4 & ~UART_C4_BRFA_MASK) | UART_C4_BRFA(16); // BRFA ajustado
+
+    // 5. Inicializar Buffer Circular y Habilitar Interrupciones en C2 y NVIC
+    RingBuffer_Init(&rx_buffer);
+    UART0->C2 |= UART_C2_RIE_MASK;                  // Habilitar IRQ por Recepción
+    UART0->C2 |= UART_C2_TE_MASK | UART_C2_RE_MASK; // Habilitar TX y RX
+
+    NVIC_SetPriority(UART0_RX_TX_IRQn, 2);
+    NVIC_EnableIRQ(UART0_RX_TX_IRQn);
+}
+
+// Rutina de Servicio de Interrupción (ISR Compartida)
+void UART0_RX_TX_IRQHandler(void) {
+    uint8_t status = UART0->S1;
+    
+    // Si hay un dato recibido en el registro D
+    if (status & UART_S1_RDRF_MASK) {
+        uint8_t data = UART0->D; // La lectura de S1 + D limpia RDRF automáticamente
+        RingBuffer_Push(&rx_buffer, data);
+    }
+}
+
+// Servicio de lectura no bloqueante para la Aplicación
+bool UART0_ReadByte(uint8_t *data) {
+    return RingBuffer_Pull(&rx_buffer, data);
+}
+```

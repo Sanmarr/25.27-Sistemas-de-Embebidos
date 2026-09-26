@@ -1,0 +1,115 @@
+= CLASE 6: ENTRADAS/SALIDAS DIGITALES (GPIO) Y PROTOCOLO I2C EN KINETIS K64F
+
+== 1. Fundamentos y Arquitectura del Módulo GPIO
+
+=== Usos Didácticos e Instrumentación de Firmware
+El módulo GPIO (*General Purpose Input/Output*) permite controlar actuadores simples y leer sensores digitales. Además, es la herramienta principal para *instrumentación y depuración de firmware (*Debug por Hardware*)*:
+- Conmutando un pin GPIO al entrar y salir de una ISR o función crítica, es posible medir con precisión en un osciloscopio o analizador lógico la latencia de interrupción, el tiempo exacto de ejecución y el porcentaje real de carga de CPU.
+
+=== Etapa de Salida: Configuración Push-Pull vs. Open-Drain
+1. *Push-Pull:* Utiliza un par de MOSFETs complementarios (PMOS superior para llevar a $V_"DD"$ y NMOS inferior para llevar a $"GND"$). Entrega o absorbe corriente activamente. Es la configuración estándar para controlar LEDs o señales lógicas.
+2. *Open-Drain (Drenador Abierto):* Deshabilita el MOSFET PMOS superior. El pin solo puede forzar un cero lógico ($"GND"$) o quedar en alta impedancia ($"Hi-Z"$). Exige una resistencia externa de Pull-Up para llevar el nivel a $V_"DD"$. 
+   - *Aplicación:* Indispensable para buses bidireccionales compartidos (como $"SDA"$ y $"SCL"$ en *I2C*) para evitar cortocircuitos si dos dispositivos transmiten a la vez.
+
+=== Etapa de Entrada, Diodos ESD y Metaestabilidad
+- *Diodos de Protección ESD:* Cada pin incluye diodos clamp conectados a $V_"DD"$ y $"GND"$ para derivar descargas electrostáticas y sobretensiones dentro de rangos seguros.
+- *Riesgo de Metaestabilidad:* Cuando una señal digital externa cambia de estado de forma asincrónica justo en el instante de muestreo del reloj interno del microcontrolador, los flip-flops pueden entrar en un estado indeterminado (*Metaestable*).
+- *Sincronizador de Doble Flip-Flop:* Para prevenir fallos en la lógica digital interna, la etapa de entrada de los microcontroladores ARM Cortex incluye dos flip-flops en cascada (*Synchronizer*) que filtran y estabilizan la señal asincrónica antes de enviarla a los registros de datos.
+
+
+== 2. Mapa de Registros PORT y GPIO en Kinetis K64F
+
+En la arquitectura Kinetis K64F, el control de pines está dividido en dos capas de hardware distintas:
+1. *Módulo PORT (`PORTx`):* Controla las propiedades eléctricas, la multiplexación y las interrupciones del pin físico.
+2. *Módulo GPIO (`GPIOx` / `PTx`):* Controla la dirección (entrada/salida) y el valor lógico del dato.
+
+=== Registro Pin Control Register (`PORTx_PCRn`)
+Cada pin de cada puerto (`PTA` a `PTE`) posee su propio registro `PCRn` de 32 bits:
+- *`MUX` (Bits [10:8]):* Selecciona la función del pin (ALT1 = GPIO, ALT2..ALT7 = Periféricos dedicados como UART, SPI, I2C, ADC).
+- *`IRQC` (Bits [19:16]):* Configura la generación de interrupción/DMA (deshabilitado, por nivel alto/bajo, flanco de subida, flanco de bajada o ambos flancos).
+- *`LK` (Bit 15 - Lock Register):* Una vez escrito en 1, bloquea el registro PCR impidiendo modificaciones por software hasta el próximo Reset del chip.
+- *`DSE` (Bit 6 - Drive Strength Enable):* $1 = "Alta capacidad de corriente"$, $0 = "Baja capacidad"$.
+- *`ODE` (Bit 5 - Open Drain Enable):* $1 = "Habilita modo Open-Drain"$ (esencial para I2C).
+- *`SRE` (Bit 2 - Slew Rate Enable):* $1 = "Velocidad de conmutación lenta (reduce ruido y EMI)"$, $0 = "Rápida"$.
+- *`PE` / `PS` (Bits [1:0]):* `PE` habilita resistencia interna ($1 = "On"$), `PS` selecciona tipo ($1 = "Pull-Up"$, $0 = "Pull-Down"$).
+
+=== Registros de Configuración Global (`PORTx_GPCLR` / `PORTx_GPCHR`)
+Permiten escribir los mismos parámetros de PCR en múltiples pines de la mitad inferior (bits [15:0]) o superior (bits [31:16]) del puerto mediante una única operación de escritura de 32 bits.
+
+=== Registros del Módulo GPIO (`GPIO_Type` / `PTx`)
+- *`PDDR` (Port Data Direction Register):* Define la dirección del pin ($0 = "Entrada"$, $1 = "Salida"$).
+- *`PDIR` (Port Data Input Register):* Registro de solo lectura que devuelve el estado lógico actual del pin físico.
+- *`PDOR` (Port Data Output Register):* Registro de lectura/escritura con el estado de salida.
+- *Registros Atómicos de Modificación de Salida (1 Ciclo de Clock):*
+  - *`PSOR` (Port Set Output Register):* Escribir $1$ fuerza el bit correspondiente en `PDOR` a *1 (HIGH)*.
+  - *`PCOR` (Port Clear Output Register):* Escribir $1$ fuerza el bit correspondiente en `PDOR` a *0 (LOW)*.
+  - *`PTOR` (Port Toggle Output Register):* Escribir $1$ invierte (*Toggle*) el estado lógico del bit en `PDOR`.
+
+En microcontroladores tradicionales, modificar un bit requiere operaciones *Read-Modify-Write (RMW)* (`PDOR |= (1<<n)`), las cuales ejecutan 3 instrucciones assembler (`LDR` -> `ORR` -> `STR`) susceptibles a corrupción por interrupciones. En K64F, escribir en `PSOR`/`PCOR`/`PTOR` ejecuta la modificación de forma *atómica en 1 solo ciclo de reloj*.
+
+
+== 3. Protocolo de Bus I2C (Inter-Integrated Circuit)
+
+=== Principios de Funcionamiento y Topología
+El bus *I2C* es un protocolo de comunicación serial sincrónico, medio-dúplex (*Half-Duplex*) y multi-máster desarrollado por Philips:
+- *Dos Líneas Bidireccionales:*
+  - *SDA (Serial Data):* Línea para transmisión de datos.
+  - *SCL (Serial Clock):* Línea de reloj de sincronismo generada por el Máster.
+- *Topología Eléctrica Open-Drain:* Todas las salidas SDA y SCL de los dispositivos conectados son de drenador abierto (*Open-Drain*) y se conectan a un bus común con resistencias de Pull-Up a $V_"DD"$ ($1.8 "K" Omega$ a $10 "K" Omega$). Esto forma una lógica *Wired-AND* donde cualquier dispositivo puede tirar la línea a masa ($0"V"$), pero ninguno fuerza un ALTO activo.
+
+=== Direccionamiento de Dispositivos y Formato de Trama
+- *Arquitectura Master-Slave:* El Máster inicia y finaliza todas las transferencias y genera el reloj SCL. Los Esclavos responden a su dirección única asignada.
+- *Direccionamiento de 7 Bits:* Permite direccionar hasta 128 dispositivos (112 útiles, reservando 16 para comandos especiales).
+- El primer byte transmitido por el Máster contiene la *Dirección del Esclavo (Bits [7:1])* y el *Bit de Dirección de Transferencia $R / "W_bar"$ (Bit 0)*:
+  - $R / "W_bar" = 0$: El Máster *escribirá* datos hacia el Esclavo (Master TX).
+  - $R / "W_bar" = 1$: El Máster *leerá* datos desde el Esclavo (Master RX).
+
+=== Formas de Onda y Condicionales de Línea I2C
+1. *Condición de START (S):* La línea SDA pasa de *HIGH a LOW* mientras SCL permanece en *HIGH*.
+2. *Condición de STOP (P):* La línea SDA pasa de *LOW a HIGH* mientras SCL permanece en *HIGH*.
+3. *REPEATED START (Sr):* Una nueva condición de START generada antes de enviar una condición de STOP. Permite al Máster cambiar la dirección de transferencia (ej. escribir una dirección de memoria y luego leerla) sin liberar el bus.
+4. *Transferencia de Datos:* Cada byte es de 8 bits (*MSB primero*). El dato en SDA solo puede cambiar cuando SCL está en LOW, y debe permanecer estable mientras SCL está en HIGH.
+5. *Bit de Acknowledgment (ACK / NACK):*
+   - Ocurre en el 9 deg pulso de reloj de SCL.
+   - *ACK (0):* El receptor fuerza la línea SDA a LOW para confirmar la recepción exitosa.
+   - *NACK (1):* El receptor deja SDA en alta impedancia ($"Hi-Z"$) y la resistencia de Pull-Up la lleva a $V_"DD"$. Indica fin de lectura o Esclavo no presente.
+
+=== Mecanismos Especiales: Clock Stretching y Arbitraje Multi-Master
+- *Clock Stretching (Estiramiento de Reloj):* Si un Esclavo lento necesita tiempo para procesar un dato o preparar la respuesta, fuerza la línea SCL a LOW. Como el bus es *Wired-AND*, el Máster detecta que SCL sigue en LOW y pausa el reloj hasta que el Esclavo libera SCL.
+- *Arbitraje Multi-Master:* Si dos Másters inician una transmisión simultáneamente, ambos monitorean la línea SDA. Si un Máster envía un '1' pero lee un '0' en SDA (forzado por el otro Máster), pierde el arbitraje de inmediato, deshabilita su salida y pasa a modo Esclavo sin corromper la trama en curso.
+
+
+== 4. Periférico I2C en Kinetis K64F (`I2C0`, `I2C1`, `I2C2`)
+
+=== Registros Principales del Módulo I2C (`I2C_Type` en CMSIS)
+- *`I2Cx_A1`:* Almacena la dirección del K64F cuando opera como Esclavo (7 bits).
+- *`I2Cx_F`:* Configura la frecuencia del reloj SCL mediante divisores del Bus Clock.
+- *`I2Cx_C1` (Control Register 1):*
+  - *`IICEN` (Bit 7):* Habilita el módulo I2C ($1 = "On"$).
+  - *`IICIE` (Bit 6):* Habilita interrupción por I2C.
+  - *`MST` (Bit 5 - Master/Slave Select):* Transición $0 -> 1$ genera una condición de *START*; transición $1 -> 0$ genera un *STOP*.
+  - *`TX` (Bit 4 - Transmit/Receive Select):* $1 = "Modo Transmisor (TX)"$, $0 = "Modo Receptor (RX)"$.
+  - *`TXAK` (Bit 3 - Transmit ACK Enable):* $0 = "Enviar ACK"$ en el 9º bit; $1 = "Enviar NACK"$.
+  - *`RSTA` (Bit 2 - Repeat Start):* Escribir 1 genera una condición de *REPEATED START*.
+- *`I2Cx_S` (Status Register):*
+  - *`TCF` (Bit 7 - Transfer Complete):* $1 = "Transferencia de byte completa"$.
+  - *`IAAS` (Bit 6 - Addressed As Slave):* Indica si fue direccionado como esclavo.
+  - *`BUSY` (Bit 5 - Bus Busy):* Indica si el bus está ocupado ($1 = "START detectado"$, $0 = "STOP detectado"$).
+  - *`ARBL` (Bit 4 - Arbitration Lost):* Se activa al perder el arbitraje.
+  - *`IICIF` (Bit 1 - Interrupt Flag):* Flag de interrupción. *Requiere borrado por software escribiendo 1 (w1c)*.
+  - *`RXAK` (Bit 0 - Received ACK Status):* $0 = "Se recibió ACK"$, $1 = "Se recibió NACK"$.
+- *`I2Cx_D` (Data I/O Register):* Registro para enviar y recibir bytes.
+
+=== Secuencia de Manejo de Master TX / Master RX en C
+1. *Configuración de Pines:* Habilitar *Clock Gating* en `SIM->SCGC4` para `I2C0` y en `PORTx` para los pines. Configurar los pines `PCR` en modo `ALT2`/`ALT5` y *obligatoriamente habilitar el modo Open-Drain (`PORTx_PCRn[ODE] = 1`)*.
+2. *Escritura (Master TX):*
+   - Cambiar a modo Máster Transmisor: `I2Cx->C1 |= I2C_C1_MST_MASK | I2C_C1_TX_MASK;` (Genera START).
+   - Inmediatamente escribir la dirección del esclavo + $R / "W_bar" = 0$ en `I2Cx->D`.
+   - Esperar `IICIF`, limpiar `IICIF` (w1c) y verificar `RXAK == 0`.
+   - Escribir bytes subsecuentes en `I2Cx->D`.
+   - Para finalizar: `I2Cx->C1 &= ~(I2C_C1_MST_MASK | I2C_C1_TX_MASK);` (Genera STOP).
+3. *Lectura (Master RX):*
+   - Tras enviar la dirección con $R / "W_bar" = 1$ y recibir ACK, cambiar a modo lectura: `I2Cx->C1 &= ~I2C_C1_TX_MASK;`
+   - Realizar una *Lectura Ficticia (*Dummy Read*)* de `I2Cx->D` para iniciar la generación de pulsos de reloj SCL por hardware.
+   - Esperar `IICIF` por cada byte. Para el penúltimo byte, configurar `I2Cx->C1 |= I2C_C1_TXAK_MASK;` para enviar NACK en el último byte.
+   - Antes de leer el último byte de `I2Cx->D`, generar la condición de STOP.
