@@ -33,8 +33,9 @@
 #align(center)[#text(size: 24pt)[Instituto Tecnológico de Buenos Aires (ITBA)]] 
 
 #figure(
-  image("/images/itbaSVG_black.svg", width: 80%)
-) <fig:indice>
+    image("/images/itbaSVG_black.svg", width: 80%)
+    ) <fig:indice>
+)
 
 #title[
 25.27 - Sistemas Embebidos
@@ -78,7 +79,7 @@ Ignacio Sammartino
  #include "files/Introduccion.typ"
 
 #pagebreak()
-#include "files/Clase1b.typ"
+#include "files/Clase1.typ"
 
 #pagebreak()
 #include "files/Clase2.typ"

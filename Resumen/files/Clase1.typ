@@ -1,100 +1,4 @@
 // =====================================================================
-// RESUMEN DIDÁCTICO - CLASE 1: BUSES Y GPIO EN SISTEMAS EMBEBIDOS
-// Asignatura: 25.27 - Sistemas Embebidos (ITBA)
-// Autor apunte original: Ignacio Sammartino
-// Formato: Typst 0.13+ / 0.14 / 0.15 (Compilable)
-// =====================================================================
-
-#set document(
-  title: [Resumen Didáctico Clase 1 - Buses y GPIO],
-  author: "Ignacio Sammartino",
-  description: "Apunte didáctico de la Clase 1 de Sistemas Embebidos (ITBA)",
-  keywords: ("sistemas embebidos", "gpio", "k64f", "buses", "typst", "itba")
-)
-
-// Configuración global de texto e idioma
-#set text(
-  lang: "es",
-  region: "AR",
-  size: 10pt,
-  font: "Liberation Sans"
-)
-
-// Configuración de página con encabezado y pie estilizado
-#set page(
-  paper: "a4",
-  margin: (top: 2.2cm, bottom: 2cm, x: 1.8cm),
-  header: context [
-    #grid(
-      columns: (1fr, auto),
-      align: horizon,
-      [
-        #text(weight: "bold", fill: rgb("#1a3a6b"))[25.27 - Sistemas Embebidos]
-        #h(0.8em) | #h(0.8em)
-        #text(style: "italic", fill: luma(80))[Resumen Clase 1: Buses y GPIO]
-      ],
-      [
-        #text(size: 8.5pt, weight: "bold", fill: rgb("#1a3a6b"))[ITBA]
-      ]
-    )
-    #v(2pt)
-    #line(length: 100%, stroke: 0.8pt + rgb("#1a3a6b"))
-  ],
-  footer: context [
-    #line(length: 100%, stroke: 0.4pt + luma(200))
-    #v(2pt)
-    #grid(
-      columns: (1fr, 1fr),
-      align(left)[#text(size: 8pt, fill: luma(120))[Instituto Tecnológico de Buenos Aires]],
-      align(right)[#text(size: 8.5pt, weight: "bold", fill: luma(100))[Página #counter(page).display("1 / 1", both: true)]]
-    )
-  ],
-  numbering: "1 / 1"
-)
-
-#set par(justify: true, leading: 0.65em)
-#set heading(numbering: "1.1")
-
-// Personalización estilizada de los títulos
-#show heading.where(level: 1): it => block(
-  width: 100%,
-  fill: rgb("#eef3f8"),
-  inset: (x: 10pt, y: 8pt),
-  radius: 4pt,
-  stroke: (left: 4pt + rgb("#1a3a6b")),
-  above: 1.6em,
-  below: 1em,
-)[
-  #text(size: 13pt, weight: "bold", fill: rgb("#1a3a6b"))[#it.body]
-]
-
-#show heading.where(level: 2): it => block(
-  above: 1.3em,
-  below: 0.7em,
-)[
-  #text(size: 11pt, weight: "bold", fill: rgb("#2b5b84"))[#it.body]
-  #v(2pt)
-  #line(length: 100%, stroke: 0.5pt + rgb("#cbd5e1"))
-]
-
-#show heading.where(level: 3): it => text(size: 10pt, weight: "bold", fill: rgb("#334155"))[#it.body]
-
-// Estilos de bloques de código
-#show raw.where(block: true): set block(
-  fill: rgb("#f8fafc"),
-  stroke: 0.5pt + rgb("#cbd5e1"),
-  inset: 8pt,
-  radius: 4pt,
-  width: 100%
-)
-#show raw.where(block: false): it => highlight(
-  fill: rgb("#f1f5f9"),
-  extent: 1.5pt,
-  radius: 2pt,
-  it
-)
-
-// =====================================================================
 // FUNCIONES Y HELPERS DIDÁCTICOS (CUADROS Y CAJAS DE COLORES)
 // =====================================================================
 
@@ -152,7 +56,7 @@
   #grid(
     columns: (1fr, auto),
     [*#text(fill: rgb("#0f172a"), size: 10.5pt)[#titulo]*],
-    [#box(fill: rgb("#e2e8f0"), inset: (x: 6pt, y: 2.5pt), radius: 3pt)[#text(size: 8.5pt, font: "monospace", weight: "bold", fill: rgb("#334155"))[#direccion]]]
+    [#box(fill: rgb("#e2e8f0"), inset: (x: 6pt, y: 2.5pt), radius: 3pt)[#text(size: 8.5pt, font: "Linux Biolinum O", weight: "bold", fill: rgb("#334155"))[#direccion]]]
   )
   #v(0.3em)
   #line(length: 100%, stroke: 0.5pt + rgb("#cbd5e1"))
@@ -160,32 +64,6 @@
   #cuerpo
 ]
 
-// =====================================================================
-// PORTADA Y ENCABEZADO PRINCIPAL
-// =====================================================================
-
-#align(center)[
-  #text(size: 18pt, weight: "bold", fill: rgb("#1a3a6b"))[Instituto Tecnológico de Buenos Aires (ITBA)] \
-  #v(0.3em)
-  #text(size: 14pt, weight: "bold", fill: rgb("#2b5b84"))[25.27 - Sistemas Embebidos] \
-  #v(0.2em)
-  #text(size: 12pt, style: "italic", fill: luma(80))[Resumen Didáctico e Integrador: Clase 1] \
-  #v(0.5em)
-  #box(
-    fill: rgb("#eef3f8"),
-    inset: (x: 12pt, y: 6pt),
-    radius: 4pt,
-    stroke: 0.5pt + rgb("#1a3a6b")
-  )[
-    #text(size: 9pt, weight: "bold")[Apunte teórico-práctico basado en el contenido de clase y bibliografía oficial]
-  ]
-]
-
-#v(1em)
-
-#outline(title: [Índice Temático de la Clase 1], depth: 2)
-
-#v(1em)
 
 // =====================================================================
 // SECCIÓN 1: BUSES DE DATOS Y DIRECCIONES
@@ -199,7 +77,7 @@ Un microcontrolador (MCU) integra la CPU, la memoria y los periféricos en un so
   La CPU se comunica con la memoria RAM, Flash y los periféricos mapeados a través de tres conjuntos principales de señales:
   - *Address Bus (Bus de Direcciones):* Unidireccional (proviene de la CPU). Especifica *con qué dispositivo o posición de memoria* se desea comunicar la CPU.
   - *Data Bus (Bus de Datos):* Bidireccional. Transporta *el valor real* que se lee o se escribe.
-  - *Control Bus / Lógica de Control (R/W):* Indica el tipo de operación (Lectura = $R/w = 1$, Escritura = $R/w = 0$).
+  - *Control Bus / Lógica de Control (R/W):* Indica el tipo de operación (Lectura: $R\/w = 1$, Escritura: $R\/w = 0$).
 ]
 
 #figure(
@@ -212,7 +90,7 @@ Un microcontrolador (MCU) integra la CPU, la memoria y los periféricos en un so
     table.header([*Bus / Señal*], [*Dirección*], [*Función Principal*]),
     [*Address Bus*], [CPU $->$ Periférico], [Selecciona la posición de memoria o registro interno a acceder.],
     [*Data Bus*], [CPU $<->$ Periférico], [Transfiere la palabra de datos (8, 16 o 32 bits según la arquitectura).],
-    [*Control ($R/w$)*], [CPU $->$ Periférico], [Establece si se lee ($1$) o si se escribe ($0$) sobre el bus.]
+    [*Control ($R\/w$)*], [CPU $->$ Periférico], [Establece si se lee ($1$) o si se escribe ($0$) sobre el bus.]
   ),
   caption: [Resumen de los buses de interconexión interna del microcontrolador.]
 )
@@ -254,6 +132,11 @@ Dado que múltiples periféricos (RAM, Flash, GPIO, Timers, ADC) comparten el mi
   2. *Escritura:* La CPU ejecuta `STAA $1000`.
      - Pone la dirección `$1000` en el *Address Bus* y $R\/w = 0$.
      - Coloca el valor del acumulador en el *Data Bus*. El periférico latché el dato en su registro interno.
+
+#figure(
+  image("/images/dataBus.png", width: 90%)
+) <fig:dataBus>
+
 ]
 
 // =====================================================================
@@ -304,11 +187,15 @@ El nivel lógico ($1$ ó $0$) no siempre coincide con la función "activa" de un
     stroke: 0.5pt + rgb("#cbd5e1"),
     fill: (_, y) => if y == 0 { rgb("#e2e8f0") },
     table.header([*Lógica*], [*Nivel Activo*], [*Simbología*], [*Ejemplo Típico*]),
-    [*Active-High*], [HIGH / $1$ ($V_"DD"$)], [Sin marca o `SIG`], [LED encendido al enviar $1$ a GND.],
-    [*Active-Low*], [LOW / $0$ ($V_"SS"$)], [Barra `SIG`, `SIG_n`, burbuja en diagramas], [Botonera con Pull-Up o habilitación `LED_EN_n`.]
+    [*Active-High*], [HIGH ($V_"DD"$)], [Sin marca o `SIG`], [LED encendido al enviar $1$ a GND.],
+    [*Active-Low*], [LOW  ($V_"SS"$)], [Barra `SIG`, `SIG_n`, burbuja en diagramas], [Botonera con Pull-Up o habilitación `LED_EN_n`.]
   ),
   caption: [Comparación entre Lógica Activa por Alto y Lógica Activa por Bajo.]
 )
+
+#figure(
+  image("/images/active.png", width: 70%),
+) <fig:active>
 
 // =====================================================================
 // SECCIÓN 3: PROPIEDADES ELÉCTRICAS DE UN PIN
@@ -328,7 +215,7 @@ Un pin de I/O no es un simple conductor; contiene circuitos de protección, tran
     stroke: 0.5pt + rgb("#cbd5e1")
   )[
     *Diodos de Protección (ESD/Overvoltage):*
-    Dos diodos clamping conectados entre el pin y $V_{"DD"}$ / $V_{"SS"}$. Conducen cuando $V_"pin" > V_{"DD"} + 0.3 V$ o $V_"pin" < -0.3 V$.
+    Dos diodos clamping conectados entre el pin y $V_"DD"$ / $V_"SS"$. Conducen cuando $V_"pin" > V_"DD" + 0.3 V$ o $V_"pin" < -0.3 V$.
     #text(size: 8.5pt, fill: rgb("#dc2626"))[*Atención:* No deben usarse como reguladores permanentes de tensión.]
   ],
   block(
@@ -341,6 +228,10 @@ Un pin de I/O no es un simple conductor; contiene circuitos de protección, tran
     Resistencias internas (típicamente $20 k Omega - 50 k Omega$) habilitables por software. Evitan que una entrada quede *flotante* (estado indeterminado sujeto a ruido electromagnético).
   ]
 )
+
+#figure(
+  image("/images/pin.png", width: 70%),
+) <fig:pin>
 
 == Parámetros de Configuración Dinámica de Salida
 
@@ -360,22 +251,27 @@ En la configuración *Open-Drain*, el transistor MOSFET P superior se deshabilit
   - *Traducción de Niveles de Tensión (Level Shifting):* Permite interfaz con circuitos de mayor voltaje (ej. controlar una línea de $5 V$ alimentando el Pull-Up a $5 V$ desde un microcontrolador de $3.3 V$).
 ]
 
+#figure(
+  image("/images/logica.png", width: 100%),
+  caption: "Implementación de lógica digital con MOSFET y elevación de la tensión de salida"
+) <fig:logica>
+
 // =====================================================================
 // SECCIÓN 4: EL MÓDULO GPIO EN EL KINETIS K64F
 // =====================================================================
 
 = El Módulo GPIO en el Microcontrolador NXP Kinetis K64F
 
-El microcontrolador MK64FN1M0VLL12 (ARM Cortex-M4 a $120 "Mhz"$) posee **5 puertos paralelos de 32 bits**: `PORTA`, `PORTB`, `PORTC`, `PORTD` y `PORTE`.
+El microcontrolador MK64FN1M0VLL12 (ARM Cortex-M4 a $120 "Mhz"$) posee *5 puertos paralelos de 32 bits*: `PORTA`, `PORTB`, `PORTC`, `PORTD` y `PORTE`.
 
 == Registros de Datos CMSIS (Capa MCAL)
 
-Para operar los datos del GPIO, el SDK provee punteros a la estructura `GPIO_Type` (`PTA`, `PTB`, `PTC`, `PTD`, `PTE`). Cada puerto cuenta con registros de 32 bits dedicados:
+Para operar los datos del GPIO, el SDK provee punteros a la estructura `GPIO_Type` (`PTA`, `PTB`, `PTC`, `PTD`, `PTE`). Cada puerto cuenta con registros de 32 bits dedicados (Kinetis K64 - Reference Manual - Chapter 4):
 
 #cuadro-registro("GPIOx_PDDR", "Port Data Direction Register (Offset: 0x14)")[
   Define la dirección del pin.
-  - Bit en `0`: Pin configurado como **Entrada Digital (INPUT)**.
-  - Bit en `1`: Pin configurado como **Salida Digital (OUTPUT)**.
+  - Bit en `0`: Pin configurado como *Entrada Digital (INPUT)*.
+  - Bit en `1`: Pin configurado como *Salida Digital (OUTPUT)*.
 ]
 
 #grid(
@@ -383,11 +279,11 @@ Para operar los datos del GPIO, el SDK provee punteros a la estructura `GPIO_Typ
   gutter: 10pt,
   cuadro-registro("GPIOx_PSOR", "Offset: 0x04")[
     *Port Set Output Register:*
-    Escribir un `1` en el bit $n$ pone la salida en **HIGH ($1$)**. Escribir `0` no produce ningún efecto. Operación atómica sin modificar otros pines.
+    Escribir un `1` en el bit $n$ pone la salida en *HIGH ($1$)*. Escribir `0` no produce ningún efecto. Operación atómica sin modificar otros pines.
   ],
   cuadro-registro("GPIOx_PCOR", "Offset: 0x08")[
     *Port Clear Output Register:*
-    Escribir un `1` en el bit $n$ fuerza la salida a **LOW ($0$)**. Escribir `0` no produce ningún efecto. Operación atómica.
+    Escribir un `1` en el bit $n$ fuerza la salida a *LOW ($0$)*. Escribir `0` no produce ningún efecto. Operación atómica.
   ]
 )
 
@@ -396,7 +292,7 @@ Para operar los datos del GPIO, el SDK provee punteros a la estructura `GPIO_Typ
   gutter: 10pt,
   cuadro-registro("GPIOx_PTOR", "Offset: 0x0C")[
     *Port Toggle Output Register:*
-    Escribir un `1` en el bit $n$ **invierte el estado** de la salida ($0 -> 1$ ó $1 -> 0$). Operación atómica.
+    Escribir un `1` en el bit $n$ *invierte el estado* de la salida ($0 -> 1$ ó $1 -> 0$). Operación atómica.
   ],
   cuadro-registro("GPIOx_PDIR", "Offset: 0x10")[
     *Port Data Input Register:*
@@ -404,9 +300,16 @@ Para operar los datos del GPIO, el SDK provee punteros a la estructura `GPIO_Typ
   ]
 )
 
+#figure(
+  image("/images/gen.png", width: 80%),
+  caption: "Registros de datos de un puerto GPIO"
+)
+
 #cuadro-atencion(titulo: "Ventaja de PSOR / PCOR / PTOR sobre Read-Modify-Write")[
-  En microcontroladores tradicionales de 8 bits, para cambiar un solo bit se requería leer todo el puerto, hacer una máscara `OR`/`AND` y reescribir (`Read-Modify-Write`). Esto consume múltiples ciclos de instrucción y **no es atómico** (es susceptible a interrupciones intermedias). En el K64F, escribir en `PSOR`, `PCOR` o `PTOR` altera **exclusivamente el bit deseado en un único ciclo de reloj de bus**.
+  En microcontroladores tradicionales de 8 bits, para cambiar un solo bit se requería leer todo el puerto, hacer una máscara `OR`/`AND` y reescribir (`Read-Modify-Write`). Esto consume múltiples ciclos de instrucción y *no es atómico* (es susceptible a interrupciones intermedias). En el K64F, escribir en `PSOR`, `PCOR` o `PTOR` altera *exclusivamente el bit deseado en un único ciclo de reloj de bus*.
 ]
+
+
 
 // =====================================================================
 // SECCIÓN 5: PIN CONTROL REGISTER (PCR)
@@ -414,7 +317,7 @@ Para operar los datos del GPIO, el SDK provee punteros a la estructura `GPIO_Typ
 
 = Pin Control Register (PCR) y Configuración Individual
 
-Cada pin físico de cada puerto posee su propio registro de control individual de 32 bits llamado **`PORTX_PCRn`** (donde $X \in \{A, B, C, D, E\}$ y $n \in \{0 dots 31\}$).
+Cada pin físico de cada puerto posee su propio registro de control individual de 32 bits llamado *`PORTX_PCRn`* (donde $X in \{A, B, C, D, E\}$ y $n in \{0 dots 31\}$).
 
 == Campos Clave del Registro `PORTx_PCRn`
 
@@ -474,19 +377,23 @@ Cada pin físico de cada puerto posee su propio registro de control individual d
 = Secuencia Paso a Paso para Configurar un Pin como GPIO
 
 #cuadro-atencion(titulo: "REGLA DE ORO: System Clock Gating Control (SCGC)")[
-  Por defecto, tras un Reset, **los relojes de todos los puertos están deshabilitados** para minimizar el consumo. Intenta leer o escribir cualquier registro de un puerto (`PCR` o `GPIO`) sin haber habilitado primero su reloj en `SIM->SCGC5` provocará una excepción de hardware inmediata (**HardFault**).
+  Por defecto, tras un Reset, *los relojes de todos los puertos están deshabilitados* para minimizar el consumo. Intenta leer o escribir cualquier registro de un puerto (`PCR` o `GPIO`) sin haber habilitado primero su reloj en `SIM->SCGC5` provocará una excepción de hardware inmediata (*HardFault*).
 ]
+
+#figure(
+  image("/images/gate2.png", width: 100%)
+) 
 
 == Algoritmo de Inicialización Estándar
 
-1. **Habilitar el Clock del Puerto:** Setear el bit correspondiente en `SIM->SCGC5` (ej. `SIM_SCGC5_PORTB_MASK`).
-2. **Configurar el Registro PCR (`PORTx_PCRn`):**
+1. *Habilitar el Clock del Puerto:* Setear el bit correspondiente en `SIM->SCGC5` (ej. `SIM_SCGC5_PORTB_MASK`).
+2. *Configurar el Registro PCR (`PORTx_PCRn`):*
    - Asignar `MUX = 1` (`ALT1`) para operar como GPIO.
    - Configurar resistores de Pull-Up/Pull-Down, Drive Strength y Slew Rate según la necesidad eléctrica del circuito.
-3. **Definir Dirección en `GPIOx_PDDR`:**
+3. *Definir Dirección en `GPIOx_PDDR`:*
    - Setear bit en $0$ para Entrada (INPUT).
    - Setear bit en $1$ para Salida (OUTPUT).
-4. **Operación de Lectura / Escritura:** Operar sobre los registros de datos (`PSOR`, `PCOR`, `PTOR`, `PDIR`).
+4. *Operación de Lectura / Escritura:* Operar sobre los registros de datos (`PSOR`, `PCOR`, `PTOR`, `PDIR`).
 
 == Ejemplo en Código C (Capas MCAL y Driver)
 
@@ -497,7 +404,7 @@ El siguiente código ilustra la inicialización y uso de un LED (Salida en `PTB2
 #include <stdbool.h>
 
 void App_Init(void) {
-    // 1. GATING: Habilitar relójes de los puertos A y B en la SIM
+    // 1. GATING: Habilitar relójes de los puertos A y B en la SIM. Operacion OR
     SIM->SCGC5 |= SIM_SCGC5_PORTA_MASK | SIM_SCGC5_PORTB_MASK;
 
     // 2. CONFIGURACIÓN DE SALIDA (LED Rojo en PTB21)
