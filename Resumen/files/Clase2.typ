@@ -42,12 +42,13 @@
   ]
 )
 
+= Clase 2
 
-= 1. Bit-Banding: Operaciones Atómicas de BITS
+== 1. Bit-Banding: Operaciones Atómicas de BITS
 
 En los microcontroladores estándar de 32 bits, la CPU *no puede modificar bits individuales directamente en memoria o en un registro*. Los accesos a memoria se realizan siempre por bytes (8 bits), half-words (16 bits) o words completos (32 bits).
 
-== El Problema de la Condición de Carrera (Race Condition)
+=== El Problema de la Condición de Carrera (Race Condition)
 Cuando intentamos cambiar un solo bit mediante la secuencia tradicional *Read-Modify-Write (RMW)*:
 1. *Read:* La CPU lee el registro completo de 32 bits a un registro interno de la CPU.
 2. *Modify:* Realiza una operación lógica (`OR`, `AND`) para alterar el bit deseado.
@@ -57,7 +58,7 @@ Cuando intentamos cambiar un solo bit mediante la secuencia tradicional *Read-Mo
   Si una interrupción (ISR) ocurre justo entre el paso de *Lectura* y el de *Escritura*, la ISR puede modificar otro bit del mismo registro. Al retornar de la interrupción, el programa principal ejecutará el paso de *Escritura*, **sobrescribiendo y perdiendo completamente el cambio realizado por la ISR**.
 ]
 
-== La Solución: Mapeo Bit-Band
+=== La Solución: Mapeo Bit-Band
 La arquitectura ARM Cortex-M4 introduce el mecanismo de **Bit-Banding**, el cual convierte un acceso a un *bit individual* en una operación de escritura o lectura *atómica* (indivisible e ininterrumpible) mediante el uso de un **alias de memoria**.
 
 #grid(
@@ -80,7 +81,7 @@ La arquitectura ARM Cortex-M4 introduce el mecanismo de **Bit-Banding**, el cual
 
 #v(0.5em)
 
-=== Fórmula de Mapeo de Direcciones
+==== Fórmula de Mapeo de Direcciones
 Para calcular la dirección en la región alias correspondiente a un bit específico de un byte/registro:
 
 $ "Alias_Addr" = "Alias_Base" + ("Byte_Offset" times 32) + ("Bit_Number" times 4) $
@@ -103,16 +104,16 @@ $ "Alias_Addr" = "Alias_Base" + ("Byte_Offset" times 32) + ("Bit_Number" times 4
   - **Lectura:** Leer la dirección alias retorna `0x01` si el bit real está en `1`, y `0x00` si está en `0`.
 ]
 
-= 2. Fundamentos de Interrupciones
+== 2. Fundamentos de Interrupciones
 
 Una **interrupción** es un evento generado por el hardware que suspende temporalmente la ejecución secuencial del programa principal (*Main Loop*) para atender una tarea urgente mediante una rutina llamada **ISR** (*Interrupt Service Routine*). Una vez finalizada la ISR, el procesador retoma la ejecución del programa exactamente en la instrucción donde fue suspendido.
 
-== Conceptos Fundamentales
+=== Conceptos Fundamentales
 - **IRQ (Interrupt Request):** Solicitud asincrónica de interrupción enviada por un periférico al procesador.
 - **ISR (Interrupt Service Routine / Handler):** Función ejecutada en respuesta a una IRQ específica.
 - **IVT (Interrupt Vector Table):** Tabla ubicada al inicio de la memoria que almacena punteros a función (*vectores*) con las direcciones de inicio de cada ISR.
 
-== Comparativa de Estrategias de Control
+=== Comparativa de Estrategias de Control
 
 #table(
   columns: (1.2fr, 2fr, 2fr, 2fr),
@@ -128,7 +129,7 @@ Una **interrupción** es un evento generado por el hardware que suspende tempora
   [ *Interrupción Dedicada* ], [El evento de hardware exterior (flanco en pin) dispara la ISR en tiempo real.], [Respuesta inmediata (mínima latencia), ultra eficiente.], [Puede saturar la CPU si ocurren eventos indeseados a muy alta frecuencia.]
 )
 
-== Máscaras y Flags de Interrupción
+=== Máscaras y Flags de Interrupción
 Para que una interrupción sea atendida, se requieren **dos llaves en serie**:
 
 #grid(
@@ -156,7 +157,7 @@ Para que una interrupción sea atendida, se requieren **dos llaves en serie**:
   **Regla de Oro:** En la mayoría de las ISRs de periféricos (como los puertos GPIO), es **obligatorio limpiar el flag dentro de la rutina escribiendo un `1` (Write-1-to-Clear / `w1c`)**. Si no se limpia el flag, al salir de la ISR el procesador verá el flag encendido y volverá a entrar a la interrupción en un **bucle infinito**.
 ]
 
-= 3. El Controlador de Interrupciones del K64: NVIC
+== 3. El Controlador de Interrupciones del K64: NVIC
 
 El **NVIC** (*Nested Vectored Interrupt Controller*) es el módulo integrado en el núcleo ARM Cortex-M4 que administra todas las excepciones e interrupciones del microcontrolador.
 
@@ -166,7 +167,7 @@ El **NVIC** (*Nested Vectored Interrupt Controller*) es el módulo integrado en 
   3. **Tail-Chaining:** Optimización por hardware que reduce el tiempo de cambio entre dos interrupciones consecutivas a solo **6 ciclos de reloj** (evita desapilar y volver a apilar registros innecesariamente).
 ]
 
-== Mapa de Excepciones e Interrupciones
+=== Mapa de Excepciones e Interrupciones
 Las excepciones se dividen en internas (del núcleo ARM Cortex) y externas (periféricos del fabricante NXP):
 
 #table(
@@ -185,7 +186,7 @@ Las excepciones se dividen en internas (del núcleo ARM Cortex) y externas (peri
   [ 16 (IRQ0) ], [ DMA / UART / PORTA... ], [ Configurable ], [ Interrupciones externas de periféricos del K64F. ]
 )
 
-== Estructura de Registros del NVIC (`NVIC_Type` en CMSIS)
+=== Estructura de Registros del NVIC (`NVIC_Type` en CMSIS)
 El NVIC se programa mediante una estructura de registros mapeados en memoria:
 
 #cuadro-registro(titulo: [Registros Principales del NVIC])[
@@ -197,7 +198,7 @@ El NVIC se programa mediante una estructura de registros mapeados en memoria:
   - **`IP[240]` (Interrupt Priority):** Array de bytes para configurar la prioridad. En el K64F se utilizan solo los **4 bits más significativos** de cada byte ($2^4 = 16$ niveles de prioridad, donde **0 es la máxima prioridad** y **15 la mínima**).
 ]
 
-== Funciones Estándar CMSIS para el NVIC
+=== Funciones Estándar CMSIS para el NVIC
 
 ```c
 // Habilitar / Deshabilitar interrupción de un periférico
@@ -211,7 +212,7 @@ NVIC_SetPriority(PORTA_IRQn, 5);
 NVIC_ClearPendingIRQ(PORTA_IRQn);
 ```
 
-= 4. Guía Paso a Paso: Configuración de Interrupción en C
+== 4. Guía Paso a Paso: Configuración de Interrupción en C
 
 Para configurar e implementar una interrupción de GPIO externa (por ejemplo, en el pulsador SW3 conectado a `PTA4`), se debe seguir estrictamente la siguiente secuencia de 5 pasos:
 
@@ -229,7 +230,7 @@ Para configurar e implementar una interrupción de GPIO externa (por ejemplo, en
   ]
 )
 
-== Código de Ejemplo Completo (Pulsador SW3 en `PTA4` e ISR)
+=== Código de Ejemplo Completo (Pulsador SW3 en `PTA4` e ISR)
 
 ```c
 #include "MK64F12.h"

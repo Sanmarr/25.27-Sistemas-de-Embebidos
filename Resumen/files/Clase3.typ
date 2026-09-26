@@ -42,11 +42,13 @@
   ]
 )
 
-= Mecanismos Avanzados de Gestión de Prioridades en Cortex-M4
+= Clase 3
+
+== Mecanismos Avanzados de Gestión de Prioridades en Cortex-M4
 
 La arquitectura *ARM Cortex-M4* incluye optimizaciones por hardware diseñadas para minimizar la latencia de interrupción y el sobrecosto (*overhead*) del apilado y desapilado de registros en la memoria Stack.
 
-== 1.1. Tail-Chaining (Encadenamiento al Final)
+=== 1.1. Tail-Chaining (Encadenamiento al Final)
 En procesadores convencionales, al finalizar la ejecución de una ISR, la CPU realiza la restauración completa de registros (*POP*) hacia el programa principal, para luego realizar inmediatamente un guardado de registros (*PUSH*) si existe otra interrupción pendiente.
 
 #cuadro-concepto(titulo:[Mecanismo de Tail-Chaining])[
@@ -60,7 +62,7 @@ En procesadores convencionales, al finalizar la ejecución de una ISR, la CPU re
   caption: "Interrupt Latency - Tail Chaining"
 )
 
-== 1.2. Pre-Emption (Anidamiento y Desalojo de Interrupciones)
+=== 1.2. Pre-Emption (Anidamiento y Desalojo de Interrupciones)
 El NVIC permite el anidamiento de interrupciones basado en niveles de prioridad.
 
 - *Regla de Desalojo:* Una interrupción entrante solo desaloja (*preempts*) a la ISR que se está ejecutando actualmente si su *nivel de prioridad es strictly mayor* (es decir, posee un número numérico menor en la configuración de prioridad).
@@ -75,7 +77,7 @@ El NVIC permite el anidamiento de interrupciones basado en niveles de prioridad.
   caption: "Interrupt Latency - Pre-Emption"
 )
 
-== 1.3. Late Arrival (Llegada Tardía)
+=== 1.3. Late Arrival (Llegada Tardía)
 Ocurre cuando una interrupción de *alta prioridad* se dispara justo mientras el procesador está realizando la fase de apilado automático de registros (*PUSH*) para una interrupción previa de *menor prioridad*.
 
 #cuadro-concepto(titulo:[Optimizador de Llegada Tardía])[
@@ -105,11 +107,11 @@ Ocurre cuando una interrupción de *alta prioridad* se dispara justo mientras el
 [ *Late Arrival* ],[Entra IRQ de alta prioridad durante el PUSH de una menor.],[Aprovecha el PUSH en curso y redirige el salto a la ISR más urgente.]
 )
 
-= El Temporizador de Sistema: SysTick
+== El Temporizador de Sistema: SysTick
 
 El *SysTick* (*System Tick Timer*) es un temporizador regresivo de 24 bits integrado internamente dentro del núcleo ARM Cortex-M4 (Excepción N° 15 de la tabla IVT).
 
-== 2.1. Propósito y Arquitectura
+=== 2.1. Propósito y Arquitectura
 - *Heartbeat del Sistema:* Proporciona una base de tiempo fija y confiable (típicamente a *1 kHz / 1 ms*) utilizada por el sistema operativo o scheduler para medir retrasos, marcas de tiempo y coordinar tareas periódicas.
 - *Contador Regresivo de 24 Bits:* Módulo decrementador independiente que cuenta desde el valor cargado en `LOAD` hasta `0`.
 - *Excepción del Núcleo:* Al llegar a cero, se activa el flag `COUNTFLAG` y, si está habilitado, dispara la excepción nativa `SysTick_Handler()`.
@@ -118,7 +120,7 @@ El *SysTick* (*System Tick Timer*) es un temporizador regresivo de 24 bits integ
   A diferencia de los periféricos externos de los puertos (como `PORTA` o `PORTB`), *la ISR del SysTick NO requiere limpiar un flag mediante software (w1c)*. El hardware borra automáticamente la solicitud de interrupción al ingresar a la rutina `SysTick_Handler()`.
 ]
 
-== 2.2. Estructura de Registros (`SysTick_Type` en CMSIS)
+=== 2.2. Estructura de Registros (`SysTick_Type` en CMSIS)
 
 El módulo se programa mediante cuatro registros principales agrupados en la estructura `SysTick`:
 
@@ -133,7 +135,7 @@ El módulo se programa mediante cuatro registros principales agrupados en la est
   - *`SysTick->CALIB` (Calibration Value Register):* Registro de lectura con la calibración de fábrica para 10 ms.
 ]
 
-=== Cálculo del Valor de Recarga (`LOAD`)
+==== Cálculo del Valor de Recarga (`LOAD`)
 Para obtener un intervalo de tiempo $T$ con una frecuencia de reloj $f_"core"$:
 
 $ "LOAD" = (f_"core" times T) - 1 $
@@ -145,7 +147,7 @@ $ "LOAD" = (f_"core" times T) - 1 $
     $ "LOAD" = (100.000.000 "Hz" times 0,125 "s") - 1 = 12.500.000 - 1 = 12.499.999 "0xBEBC1F" $
 ]
 
-== 2.3. Código C de Inicialización y Controlador Nativo
+=== 2.3. Código C de Inicialización y Controlador Nativo
 
 ```c
 #include "MK64F12.h"
@@ -178,7 +180,7 @@ void SysTick_Handler(void) {
 }
 ```
 
-= Patrón de Arquitectura: Despachador de Tareas Periódicas
+== Patrón de Arquitectura: Despachador de Tareas Periódicas
 
 Para evitar configurar múltiples timers de hardware para cada tarea ligera, el SysTick actúa como una *base de tiempo compartida* mediante el registro de callbacks (*Scheduler* / Fachada HAL).
 
@@ -187,7 +189,7 @@ Para evitar configurar múltiples timers de hardware para cada tarea ligera, el 
   2. *Desacoplamiento:* La ISR del SysTick no conoce la lógica interna de los drivers; simplemente recorre un vector de punteros a función y los ejecuta en orden secuencial.
 ]
 
-== Ejemplo de Despachador Genérico en C
+=== Ejemplo de Despachador Genérico en C
 
 ```c
 #define MAX_CALLBACKS 4
@@ -216,7 +218,7 @@ void SysTick_Handler(void) {
 }
 ```
 
-= Análisis Práctico de Timing y Prioridades
+== Análisis Práctico de Timing y Prioridades
 
 En sistemas embebidos reales con múltiples interrupciones concurrentes, asignar la misma prioridad a todas las ISRs puede provocar la pérdida de eventos críticos.
 

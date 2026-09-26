@@ -42,16 +42,18 @@
 // ENCABEZADO PRINCIPAL DEL RESUMEN
 // ==========================================
 
-= Arquitectura Interna y Funciones Avanzadas de GPIO
+= Clase 6
+
+== Arquitectura Interna y Funciones Avanzadas de GPIO
 
 El módulo GPIO (*General Purpose Input/Output*) es el periférico más elemental de un microcontrolador. Sin embargo, su arquitectura interna incluye mecanismos clave para la integridad de señal y el control eléctrico.
 
-== Instrumentación de Firmware (Debug por Hardware)
+=== Instrumentación de Firmware (Debug por Hardware)
 Además de controlar actuadores o leer sensores, los pines GPIO son la herramienta principal de depuración en tiempo real:
 - *Técnica:* Conmutar un pin GPIO al ingresar y salir de una ISR o función crítica.
 - *Medición:* Conectando un osciloscopio o analizador lógico al pin, se mide de forma exacta la *latencia de interrupción*, el *tiempo de ejecución de la tarea* y el *porcentaje de uso de CPU*.
 
-== Configuración Eléctrica de Salida: Push-Pull vs. Open-Drain
+=== Configuración Eléctrica de Salida: Push-Pull vs. Open-Drain
 
 #table(
   columns: (1.5fr, 2.5fr, 2fr),
@@ -66,7 +68,7 @@ Además de controlar actuadores o leer sensores, los pines GPIO son la herramien
   [ *Open-Drain* ], [Deshabilita el PMOS. El pin solo puede forzar $"GND"$ o quedar en Alta Impedancia ($"Hi-Z"$).], [Buses compartidos bidireccionales (I2C), lógica *Wired-AND* y adaptación de niveles.]
 )
 
-== Sincronización y Prevención de Metaestabilidad
+=== Sincronización y Prevención de Metaestabilidad
 Cuando una señal digital externa cambia de estado de forma asincrónica, existe el riesgo de que el cambio ocurra exactamente durante el pulso de muestreo del reloj interno del microcontrolador.
 
 #cuadro-atencion(titulo: [Riesgo de Metaestabilidad])[  Un evento asincrónico no sincronizado con el reloj del sistema puede provocar que los flip-flops internos entren en un estado indeterminado (*metaestable*), corrompiendo la lógica digital interna.
@@ -74,13 +76,13 @@ Cuando una señal digital externa cambia de estado de forma asincrónica, existe
   *Solución de Hardware:* La etapa de entrada de los microcontroladores Kinetis incluye un *sincronizador con doble flip-flop en cascada*, el cual estabiliza la señal antes de presentarla en el registro de entrada `PDIR`.
 ]
 
-= Mapeo de Registros PORT y GPIO en Kinetis K64F
+== Mapeo de Registros PORT y GPIO en Kinetis K64F
 
 En el K64F, el control de pines se divide formalmente en dos módulos de hardware:
 1. *Módulo PORT (`PORTx_PCRn`):* Controla las propiedades eléctricas y la multiplexación de cada pin individual.
 2. *Módulo GPIO (`GPIOx`):* Controla la dirección de datos y los niveles lógicos de salida y entrada.
 
-== Registros Clave de Control y Datos
+=== Registros Clave de Control y Datos
 
 #cuadro-registro(titulo: [Registro Control de Pin (PORTx_PCRn)])[  - *`MUX` (Bits [10:8]):* Selecciona la función del pin (`001` = ALT1 para GPIO).
   - *`IRQC` (Bits [19:16]):* Configura la generación de interrupción o DMA (flancos o niveles).
@@ -102,19 +104,19 @@ En el K64F, el control de pines se divide formalmente en dos módulos de hardwar
   *Escribir en `PSOR`/`PCOR`/`PTOR` ejecuta la modificación en *1 solo ciclo de bus*, garantizando operaciones atómicas sin requerir la secuencia susceptible a carreras Read-Modify-Write (`PDOR |= (1<<n)`).*
 ]
 
-= Protocolo de Comunicación I2C (Inter-Integrated Circuit)
+== Protocolo de Comunicación I2C (Inter-Integrated Circuit)
 
 I2C es un bus serial síncrono, multimaestro y multiesclavo desarrollado por Philips que utiliza solo *2 hilos bidireccionales*:
 - *SDA (Serial Data):* Línea de datos bidireccional.
 - *SCL (Serial Clock):* Línea de reloj bidireccional controlada por el máster activo.
 
-== Topología Eléctrica Open-Drain y Lógica Wired-AND
+=== Topología Eléctrica Open-Drain y Lógica Wired-AND
 Todas las salidas SDA y SCL de los dispositivos en el bus son de drenador abierto (*Open-Drain*) y comparten resistencias de *Pull-Up* externas conectadas a $V_"DD"$ (típicamente $1.8 "k" Omega$ a $10 "k" Omega$).
 
 #cuadro-concepto(titulo: [Lógica Wired-AND])[  Cualquier dispositivo en el bus puede tirar la línea a $"GND"$ (0V), pero ninguno puede forzar activamente un ALTO (3.3V). La línea solo sube a ALTO si *todos* los dispositivos dejan su salida en alta impedancia ($"Hi"-Z$). Esto previene cortocircuitos si dos equipos transmiten simultáneamente.
 ]
 
-== Formas de Onda y Reglas del Protocolo I2C
+=== Formas de Onda y Reglas del Protocolo I2C
 
 #table(
   columns: (1.5fr, 2.5fr, 2fr),
@@ -132,22 +134,22 @@ Todas las salidas SDA y SCL de los dispositivos en el bus son de drenador abiert
   [ *ACK / NACK* ], [El receptor fuerza SDA a BAJO (ACK = 0) o lo deja libre (NACK = 1) en el 9º pulso de SCL.], [Confirmación de recepción del byte por parte del receptor.]
 )
 
-== Mecanismos Avanzados: Clock Stretching y Arbitraje
+=== Mecanismos Avanzados: Clock Stretching y Arbitraje
 1. *Clock Stretching (Estiramiento de Reloj):* Si un esclavo lento necesita tiempo para procesar datos, puede forzar la línea SCL a BAJO de forma continua. El máster detecta esto y detiene el reloj hasta que el esclavo libera SCL.
 2. *Arbitraje Multi-Master:* Si dos másters inician una transmisión simultánea, ambos monitorean la línea SDA. Si un máster intenta enviar un `'1'` pero lee un `'0'` (porque otro máster tiró la línea a masa), pierde inmediatamente el arbitraje y se retira sin corromper la trama en curso.
 
-= Implementación del Driver I2C en Kinetis K64F
+== Implementación del Driver I2C en Kinetis K64F
 
 El microcontrolador K64F cuenta con módulos `I2C0`, `I2C1` e `I2C2`.
 
-== Registros Principales del Periférico `I2Cx`
+=== Registros Principales del Periférico `I2Cx`
 - *`I2Cx->A1`:* Dirección propia de esclavo (7 bits).
 - *`I2Cx->F`:* Divisor de frecuencia para generar la velocidad de SCL a partir del Bus Clock.
 - *`I2Cx->C1`:* Registro de control principal (`IICEN` habilita módulo, `IICIE` habilita interrupción, `MST` selecciona Master/Slave, `TX` selecciona Transmisor/Receptor, `TXAK` habilita NACK, `RSTA` genera Repeated Start).
 - *`I2Cx->S`:* Registro de estado (`TCF` transferencia completa, `BUSY` bus ocupado, `ARBL` pérdida de arbitraje, `IICIF` flag de interrupción *w1c*, `RXAK` estado del ACK recibido).
 - *`I2Cx->D`:* Registro de datos de entrada/salida.
 
-== Código C: Driver I2C Máster (Inicialización, Escritura y Lectura)
+=== Código C: Driver I2C Máster (Inicialización, Escritura y Lectura)
 
 ```c
 #include "MK64F12.h"

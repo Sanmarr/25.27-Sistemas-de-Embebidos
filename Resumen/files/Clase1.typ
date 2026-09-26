@@ -1,3 +1,5 @@
+= Clase 1
+
 // =====================================================================
 // FUNCIONES Y HELPERS DIDÁCTICOS (CUADROS Y CAJAS DE COLORES)
 // =====================================================================
@@ -69,7 +71,7 @@
 // SECCIÓN 1: BUSES DE DATOS Y DIRECCIONES
 // =====================================================================
 
-= Buses de Datos y de Direcciones
+== Buses de Datos y de Direcciones
 
 Un microcontrolador (MCU) integra la CPU, la memoria y los periféricos en un solo chip (*System on Chip - SoC*). Para coordinar la transferencia de información entre estos bloques internos se utiliza un conjunto de conductores llamados *buses*.
 
@@ -95,7 +97,7 @@ Un microcontrolador (MCU) integra la CPU, la memoria y los periféricos en un so
   caption: [Resumen de los buses de interconexión interna del microcontrolador.]
 )
 
-== Buffers Tri-State y Lógica de Decodificación
+=== Buffers Tri-State y Lógica de Decodificación
 
 Dado que múltiples periféricos (RAM, Flash, GPIO, Timers, ADC) comparten el mismo *Data Bus*, se debe evitar que más de un dispositivo intente imponer un nivel lógico simultáneamente, lo cual generaría un cortocircuito (*conflicto de bus*).
 
@@ -143,7 +145,7 @@ Dado que múltiples periféricos (RAM, Flash, GPIO, Timers, ADC) comparten el mi
 // SECCIÓN 2: GPIO Y SUS CONCEPTOS CLAVE
 // =====================================================================
 
-= GPIO (General Purpose Input/Output)
+== GPIO (General Purpose Input/Output)
 
 Un *GPIO* es un periférico modular que permite a la CPU controlar o leer pines físicos del microcontrolador como entradas o salidas digitales.
 
@@ -151,7 +153,7 @@ Un *GPIO* es un periférico modular que permite a la CPU controlar o leer pines 
   Los registros que controlan los pines del GPIO están mapeados directamente en el mapa de memoria global del microcontrolador. Escribir o leer un pin digital equivale a realizar un acceso estándar a memoria sobre una dirección específica asignada a ese registro.
 ]
 
-== Técnica de Readback (Lectura de Salidas)
+=== Técnica de Readback (Lectura de Salidas)
 
 El *Readback* es la capacidad del hardware de *leer el nivel lógico real* presente en un pin configurado como salida.
 
@@ -175,7 +177,7 @@ El *Readback* es la capacidad del hardware de *leer el nivel lógico real* prese
   ]
 )
 
-== Lógica Activa: Active-High vs. Active-Low
+=== Lógica Activa: Active-High vs. Active-Low
 
 El nivel lógico ($1$ ó $0$) no siempre coincide con la función "activa" de un componente.
 
@@ -201,7 +203,7 @@ El nivel lógico ($1$ ó $0$) no siempre coincide con la función "activa" de un
 // SECCIÓN 3: PROPIEDADES ELÉCTRICAS DE UN PIN
 // =====================================================================
 
-= Propiedades Eléctricas de los Pines Digitales
+== Propiedades Eléctricas de los Pines Digitales
 
 Un pin de I/O no es un simple conductor; contiene circuitos de protección, transistores de conmutación y redes pasivas configurables por software.
 
@@ -233,7 +235,7 @@ Un pin de I/O no es un simple conductor; contiene circuitos de protección, tran
   image("/images/pin.png", width: 70%),
 ) <fig:pin>
 
-== Parámetros de Configuración Dinámica de Salida
+=== Parámetros de Configuración Dinámica de Salida
 
 1. *Drive Strength (Capacidad de Corriente - DSE):*
    - *Low Drive Strength:* Limita la corriente máxima de salida (ej. $2 "mA" $ a $4 "mA" $). Reduce el ruido y el consumo eléctrico.
@@ -242,7 +244,7 @@ Un pin de I/O no es un simple conductor; contiene circuitos de protección, tran
    - *Slew Rate Enable:* Limita la velocidad de cambio $d V / d t$ de la transición lógico-eléctrica.
    - *Ventaja:* Atenúa picos de alta frecuencia y reduce la Interferencia Electromagnética (EMI) y la diafonía en el PCB.
 
-== Salidas Open-Drain / Drenador Abierto
+=== Salidas Open-Drain / Drenador Abierto
 
 En la configuración *Open-Drain*, el transistor MOSFET P superior se deshabilita. El pin solo puede conmutar entre *Masa ($0$)* y *Alta Impedancia ($Z$)*.
 
@@ -260,11 +262,11 @@ En la configuración *Open-Drain*, el transistor MOSFET P superior se deshabilit
 // SECCIÓN 4: EL MÓDULO GPIO EN EL KINETIS K64F
 // =====================================================================
 
-= El Módulo GPIO en el Microcontrolador NXP Kinetis K64F
+== El Módulo GPIO en el Microcontrolador NXP Kinetis K64F
 
 El microcontrolador MK64FN1M0VLL12 (ARM Cortex-M4 a $120 "Mhz"$) posee *5 puertos paralelos de 32 bits*: `PORTA`, `PORTB`, `PORTC`, `PORTD` y `PORTE`.
 
-== Registros de Datos CMSIS (Capa MCAL)
+=== Registros de Datos CMSIS (Capa MCAL)
 
 Para operar los datos del GPIO, el SDK provee punteros a la estructura `GPIO_Type` (`PTA`, `PTB`, `PTC`, `PTD`, `PTE`). Cada puerto cuenta con registros de 32 bits dedicados (Kinetis K64 - Reference Manual - Chapter 4):
 
@@ -315,11 +317,11 @@ Para operar los datos del GPIO, el SDK provee punteros a la estructura `GPIO_Typ
 // SECCIÓN 5: PIN CONTROL REGISTER (PCR)
 // =====================================================================
 
-= Pin Control Register (PCR) y Configuración Individual
+== Pin Control Register (PCR) y Configuración Individual
 
 Cada pin físico de cada puerto posee su propio registro de control individual de 32 bits llamado *`PORTX_PCRn`* (donde $X in \{A, B, C, D, E\}$ y $n in \{0 dots 31\}$).
 
-== Campos Clave del Registro `PORTx_PCRn`
+=== Campos Clave del Registro `PORTx_PCRn`
 
 #figure(
   table(
@@ -340,7 +342,7 @@ Cada pin físico de cada puerto posee su propio registro de control individual d
   caption: [Distribución de campos en el Pin Control Register (PCR).]
 )
 
-== Multiplexación de Pines (Campo MUX)
+=== Multiplexación de Pines (Campo MUX)
 
 #grid(
   columns: (1.2fr, 1fr),
@@ -374,7 +376,7 @@ Cada pin físico de cada puerto posee su propio registro de control individual d
 // SECCIÓN 6: SECUENCIA DE CONFIGURACIÓN Y CÓDIGO C
 // =====================================================================
 
-= Secuencia Paso a Paso para Configurar un Pin como GPIO
+== Secuencia Paso a Paso para Configurar un Pin como GPIO
 
 #cuadro-atencion(titulo: "REGLA DE ORO: System Clock Gating Control (SCGC)")[
   Por defecto, tras un Reset, *los relojes de todos los puertos están deshabilitados* para minimizar el consumo. Intenta leer o escribir cualquier registro de un puerto (`PCR` o `GPIO`) sin haber habilitado primero su reloj en `SIM->SCGC5` provocará una excepción de hardware inmediata (*HardFault*).
@@ -384,7 +386,7 @@ Cada pin físico de cada puerto posee su propio registro de control individual d
   image("/images/gate2.png", width: 100%)
 ) 
 
-== Algoritmo de Inicialización Estándar
+=== Algoritmo de Inicialización Estándar
 
 1. *Habilitar el Clock del Puerto:* Setear el bit correspondiente en `SIM->SCGC5` (ej. `SIM_SCGC5_PORTB_MASK`).
 2. *Configurar el Registro PCR (`PORTx_PCRn`):*
@@ -395,7 +397,7 @@ Cada pin físico de cada puerto posee su propio registro de control individual d
    - Setear bit en $1$ para Salida (OUTPUT).
 4. *Operación de Lectura / Escritura:* Operar sobre los registros de datos (`PSOR`, `PCOR`, `PTOR`, `PDIR`).
 
-== Ejemplo en Código C (Capas MCAL y Driver)
+=== Ejemplo en Código C (Capas MCAL y Driver)
 
 El siguiente código ilustra la inicialización y uso de un LED (Salida en `PTB21`) y un Pulsador con Pull-Up (Entrada en `PTA4`):
 

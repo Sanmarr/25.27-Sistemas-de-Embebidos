@@ -43,7 +43,9 @@
   ]
 )
 
-= Fundamentos de Comunicación Serial vs. Paralela
+= Clase 5
+
+== Fundamentos de Comunicación Serial vs. Paralela
 
 La transmisión de datos en sistemas embebidos entre el microcontrolador y periféricos externos (sensores, módulos de comunicación, PCs o pantallas) se clasifica en dos arquitecturas fundamentales:
 
@@ -62,7 +64,7 @@ La transmisión de datos en sistemas embebidos entre el microcontrolador y perif
   [*Ancho de Banda*], [Elevado en distancias muy cortas.], [Muy alto a altas frecuencias con transceptores adecuados.]
 )
 
-== Comunicación Sincrónica vs. Asincrónica
+=== Comunicación Sincrónica vs. Asincrónica
 
 - *Sincrónica (SPI, I2C):* Existe una línea física explícita de reloj (*Clock*) provista por un máster para sincronizar la lectura de los bits en emisor y receptor.
 - *Asincrónica (UART):* No existe línea física de reloj. Emisor y receptor acuerdan previamente una velocidad fija (*Baud Rate*) y sincronizan sus relojes locales mediante el formato de una trama estructurada (*Start/Stop bits*).
@@ -72,7 +74,7 @@ La transmisión de datos en sistemas embebidos entre el microcontrolador y perif
   - *Periférico Dedicado (UART):* Módulo de hardware integrado que realiza la conversión paralelo-serie y serie-paralelo de forma autónoma mediante registros de desplazamiento y buffers, liberando a la CPU.
 ]
 
-= 2. Anatomía Completa de la Trama UART (Protocolo 8N1)
+== 2. Anatomía Completa de la Trama UART (Protocolo 8N1)
 
 En reposo, la línea de transmisión se mantiene en nivel lógico ALTO ($1$). La trama estándar *8N1* (8 bits de datos, sin paridad, 1 bit de stop) se compone secuencialmente de:
 
@@ -84,7 +86,7 @@ En reposo, la línea de transmisión se mantiene en nivel lógico ALTO ($1$). La
   5. *Bit(s) de Stop:* Uno o dos bits en nivel *ALTO (1 / $V_"DD"$)* que marcan el cierre de la trama y retornan la línea a reposo.
 ]
 
-== Eficiencia de Canal y Muestreo por Sobremuestreo
+=== Eficiencia de Canal y Muestreo por Sobremuestreo
 
 En una trama estándar 8N1 se envían 10 bits totales para transmitir 8 bits útiles de información:
 
@@ -98,7 +100,7 @@ $ T_"bit" = 1 / "Baud Rate" quad ==> quad "A 9600 bps: " T_"bit" = 1 / 9600 appr
   *Tolerancia Máxima:* Dado que emisor y receptor poseen cristales independientes, un desfasaje acumulado mayor al *$2.5 "%"$* entre ambos relojes provoca la lectura incorrecta del bit de Stop, generando un error de trama (*Framing Error - FE*).
 ]
 
-= Capa Física, Estándares Eléctricos y Control de Flujo
+== Capa Física, Estándares Eléctricos y Control de Flujo
 
 La salida nativa del microcontrolador opera en niveles *TTL/CMOS (0V a 3.3V)*. Para comunicarse con computadoras o equipos industriales se requieren adaptadores de capa física:
 
@@ -117,13 +119,13 @@ La salida nativa del microcontrolador opera en niveles *TTL/CMOS (0V a 3.3V)*. P
   [*Comandos AT*], [Lógica de texto sobre UART (`AT`, `AT+CSQ`)], [Estándar de configuración para módulos Bluetooth (HC-05), GSM (SIM800) y GPS.]
 )
 
-== Control de Flujo por Software (XON / XOFF)
+=== Control de Flujo por Software (XON / XOFF)
 
 Cuando el receptor no puede procesar los datos a la velocidad que los recibe, utiliza *Control de Flujo por Software*:
 - *XOFF (`0x13` / Ctrl+S):* Enviado por el receptor para ordenar al emisor pausar la transmisión.
 - *XON (`0x11` / Ctrl+Q):* Enviado por el receptor cuando vuelve a tener espacio disponible en el buffer para reanudar la transmisión.
 
-= Colas Circulares (Ring Buffers) e Interrupciones
+== Colas Circulares (Ring Buffers) e Interrupciones
 
 Existe una clara *asimetría temporal* entre la transmisión y la recepción:
 - *Recepción (RX):* Es crítica e impredecible. Si no se lee el dato de inmediato cuando llega, el siguiente byte entrante lo sobrescribirá, causando un error de sobreescritura (*Overrun Error - OR*).
@@ -133,7 +135,7 @@ Existe una clara *asimetría temporal* entre la transmisión y la recepción:
   Para evitar código bloqueante, la ISR de recepción guarda los bytes inmediatamente en una *Cola Circular (Ring Buffer)* en memoria RAM. El programa principal (*Main Loop*) consume los datos de la cola a su propio ritmo.
 ]
 
-== Código C Didáctico de una Cola Circular (`RingBuffer`)
+=== Código C Didáctico de una Cola Circular (`RingBuffer`)
 
 ```c
 #define RING_BUFFER_SIZE 64
@@ -168,7 +170,7 @@ bool RingBuffer_Pull(RingBuffer_t *rb, uint8_t *data) {
 }
 ```
 
-= Mapeo de Registros y Cálculo Fraccional de Baud Rate en Kinetis K64F
+== Mapeo de Registros y Cálculo Fraccional de Baud Rate en Kinetis K64F
 
 El Kinetis K64F cuenta con 6 módulos UART (`UART0` a `UART5`):
 - `UART0` y `UART1`: Alimentados desde el *System Clock* ($f_"core"$ hasta 100 MHz).
@@ -183,9 +185,9 @@ El Kinetis K64F cuenta con 6 módulos UART (`UART0` a `UART5`):
   - *Cálculo de BRFA:* "BRFA" = "round"((("UART_CLK" / (16 times "Baud Rate")) - SBR) times 32)
 ]
 
-= Control de Registros, FIFOs y Driver UART Completo en C
+== Control de Registros, FIFOs y Driver UART Completo en C
 
-== Registros de Control y Estado
+=== Registros de Control y Estado
 - *`UARTx_C1`:* Configura formato de trama (8/9 bits, paridad).
 - *`UARTx_C2`:* Habilita transmisor (`TE`), receptor (`RE`), interrupción por transmisión libre (`TIE`) e interrupción por recepción llena (`RIE`).
 - *`UARTx_S1`:* Almacena los flags de estado principales (`TDRE`, `TC`, `RDRF`, `IDLE`, `OR`, `NF`, `FE`, `PF`).
@@ -197,10 +199,10 @@ El Kinetis K64F cuenta con 6 módulos UART (`UART0` a `UART5`):
   2. *Segundo:* Leer (o escribir) el registro de datos `UARTx_D`.
 ]
 
-== Configuración de FIFOs de Hardware
+=== Configuración de FIFOs de Hardware
 Las UARTs disponen de FIFOs de hardware (`PFIFO`, `TWFIFO`, `RWFIFO`) que permiten configurar marcas de agua (*watermarks*). Por ejemplo, `RWFIFO = 1` genera la interrupción `RDRF` en cuanto ingresa al menos 1 byte en la FIFO de recepción.
 
-== Código C Completo del Driver UART0 Orientado a Interrupciones
+=== Código C Completo del Driver UART0 Orientado a Interrupciones
 
 ```c
 #include "MK64F12.h"

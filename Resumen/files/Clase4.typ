@@ -43,7 +43,9 @@
   ]
 )
 
-= Arquitectura de Firmware en Capas
+= Clase 4
+
+== Arquitectura de Firmware en Capas
 
 En el desarrollo de sistemas embebidos profesionales, la complejidad crece rápidamente al integrar múltiples periféricos (displays multiplexados, teclados, sensores, comunicaciones). Para evitar que el código se vuelva inmanejable ("código espagueti") y garantizar su mantenibilidad, portabilidad y testeabilidad, se utiliza una *arquitectura modular estructurada en capas de abstracción bien definidas*.
 
@@ -51,7 +53,7 @@ En el desarrollo de sistemas embebidos profesionales, la complejidad crece rápi
   Cada capa del sistema satisface un rol específico y se comunica *exclusivamente con la capa inmediata superior o inferior* mediante interfaces estándar. La regla fundamental es el *aislamiento de hardware*: la capa de aplicación debe desconocer por completo qué microcontrolador o circuito integrado físico está ejecutando el código.
 ]
 
-== Jerarquía de Abstracción del Sistema
+=== Jerarquía de Abstracción del Sistema
 
 #grid(
   columns: (1fr,),
@@ -85,7 +87,7 @@ En el desarrollo de sistemas embebidos profesionales, la complejidad crece rápi
   caption: "Ejemplo de Arquitectura de Firmware: Controlador de temperatura"
 )
 
-= Estructura Estándar de un Driver en C
+== Estructura Estándar de un Driver en C
 
 Todos los drivers de periféricos (DRV) deben seguir una estructura interna uniforme dividida en 4 partes funcionales:
 
@@ -125,11 +127,11 @@ Todos los drivers de periféricos (DRV) deben seguir una estructura interna unif
   ]
 )
 
-= Análisis Temporal de Modelos de Ejecución
+== Análisis Temporal de Modelos de Ejecución
 
 Para gestionar la interacción entre la Aplicación, el Driver y el Hardware, existen 4 estrategias temporales con eficiencias drásticamente distintas:
 
-== 1. Código Bloqueante (*Blocking Code*)
+=== 1. Código Bloqueante (*Blocking Code*)
 La Aplicación llama al Driver para iniciar una tarea y el Driver congela la CPU en un bucle cerrado hasta que el Hardware responda.
 - *Rendimiento:* *0% de eficiencia de CPU.* Desperdicia millones de ciclos de reloj esperando eventos externos.
 - *Uso:* Totalmente *prohibido* en sistemas profesionales y de tiempo real.
@@ -138,7 +140,7 @@ La Aplicación llama al Driver para iniciar una tarea y el Driver congela la CPU
   image("/images/bloq.png", width: 70%)
 )
 
-== 2. Polling (*Consulta Continua*)
+=== 2. Polling (*Consulta Continua*)
 La Aplicación realiza una secuencia de 3 llamadas no bloqueantes: *comenzar*, *¿está listo?*, y *leer resultado*.
 - *Rendimiento:* La APP puede intercalar otras tareas, pero pierde tiempo valioso volviendo a preguntar constantemente `¿listo?` al Driver.
 - *Inconveniente:* El Driver actúa de simple pasamanos y la CPU consume energía inútilmente.
@@ -147,7 +149,7 @@ La Aplicación realiza una secuencia de 3 llamadas no bloqueantes: *comenzar*, *
   image("/images/polling.png", width: 70%)
 )
 
-== 3. Interrupción Periódica (*PISR / Hardware Polling*)
+=== 3. Interrupción Periódica (*PISR / Hardware Polling*)
 Un temporizador de hardware (como el *SysTick a 1 kHz*) ejecuta automáticamente la función `DRV_PISR()` a intervalos regulares para interrogar al hardware.
 - *Rendimiento:* *Excelente.* La APP queda suspendida un tiempo ínfimo durante la interrupción y el evento se captura en RAM inmediatamente.
 - *Uso:* Opción preferida para la mayoría de las interfaces humanas (botones, encoders, displays).
@@ -156,7 +158,7 @@ Un temporizador de hardware (como el *SysTick a 1 kHz*) ejecuta automáticamente
   image("/images/pisr.png", width: 70%)
 )
 
-== 4. Interrupción Dedicada (*ISR*)
+=== 4. Interrupción Dedicada (*ISR*)
 El hardware envía una señal eléctrica (IRQ) a la CPU en el instante exacto en que ocurre el evento, ejecutando `DRV_ISR()`.
 - *Rendimiento:* *Respuesta inmediata en tiempo real (mínima latencia).*
 - *Uso:* Reservado para eventos ultra-rápidos que se perderían entre muestras periódicas.
@@ -178,7 +180,7 @@ El hardware envía una señal eléctrica (IRQ) a la CPU en el instante exacto en
 [ *ISR Dedicada* ],[ Inmediata ($approx$ nanosegundos) ],[ Solo durante la ráfaga del evento ],[ Lectores de banda magnética, recepción UART, encoders de motor. ]
 )
 
-= Integración Segura con Callbacks y Reglas de Diseño
+== Integración Segura con Callbacks y Reglas de Diseño
 
 #cuadro-atencion(titulo:[REGLA ABSOLUTA DE DISEÑO: Jamás Lanzar Callbacks desde ISR / PISR])[
   *"Never ever launch a callback from inside an ISR or PISR."* \
@@ -189,7 +191,7 @@ El hardware envía una señal eléctrica (IRQ) a la CPU en el instante exacto en
 )
 ]
 
-== Arquitectura Correcta de Despacho de Eventos
+=== Arquitectura Correcta de Despacho de Eventos
 
 Para comunicar eventos desde el hardware hacia la aplicación sin correr riesgos:
 1. *La ISR / PISR solo captura los datos crudos y enciende un *Flag* en RAM.*
