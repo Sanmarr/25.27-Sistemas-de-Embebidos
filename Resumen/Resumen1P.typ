@@ -1,5 +1,8 @@
 #import "@preview/codly:1.3.0": *
 #import "@preview/codly-languages:0.1.1": *
+// Set font size specifically for block-level code
+#show raw.where(block: true): set text(size: 8pt)
+
 #show: codly-init.with()
 
 #set document(
@@ -16,7 +19,7 @@
 //Seteo el formato del texto
 #set text(
   font: "Linux Biolinum O",
-  size: 12pt,
+  size: 10pt,
   tracking: 0pt, // (Default = 0pt2)
   spacing: 100%,
   fractions: false /* Se rompe por algun motivo con true*/
@@ -36,7 +39,7 @@
 #title[
 25.27 - Sistemas Embebidos
 
-Guias
+Teoría
 ]
 
 Ignacio Sammartino
@@ -63,12 +66,12 @@ Ignacio Sammartino
 #set page(numbering: "1 of 1")
 #set heading(numbering: "1. 1. 1 -")
 
+#set heading(numbering: (n1, ..x) => numbering("1.1.1 -", n1 - 1, ..x))
+
 #pagebreak()
 #set page(columns: 2)
 #outline()
 #set page(columns: 1)
 
-#pagebreak()
-#include "/files/Guia1.typ"
-#pagebreak()
-#include "/files/Guia2.typ"
+//#pagebreak()
+//#include "files/Clase1.typ"

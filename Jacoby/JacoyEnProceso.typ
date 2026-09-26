@@ -78,7 +78,7 @@ Ignacio Sammartino
  #include "files/Introduccion.typ"
 
 #pagebreak()
-#include "files/Clase1.typ"
+#include "files/Clase1b.typ"
 
 #pagebreak()
 #include "files/Clase2.typ"
@@ -88,3 +88,9 @@ Ignacio Sammartino
 
 #pagebreak()
 #include"files/Clase4.typ"
+
+#pagebreak()
+#include"files/Clase5.typ"
+
+#pagebreak()
+#include"files/Clase5.typ"
