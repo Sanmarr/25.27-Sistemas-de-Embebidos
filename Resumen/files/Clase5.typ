@@ -53,7 +53,7 @@ La transmisión de datos en sistemas embebidos entre el microcontrolador y perif
   columns: (1.2fr, 2fr, 2fr),
   inset: 6pt,
   stroke: 0.5pt + luma(180),
-  fill: (_, y) => if y == 0 { rgb("#0f2b48") } else if calc.odd(y) { rgb("#f9f9f9") },
+  fill: (_, y) => if y == 0 { rgb("#5c85b1") } else if calc.odd(y) { rgb("#f9f9f9") },
   align: (left, left, left),
   table.header(
     [*Parámetro*], [*Comunicación Paralela*], [*Comunicación Serial*]
@@ -69,12 +69,31 @@ La transmisión de datos en sistemas embebidos entre el microcontrolador y perif
 - *Sincrónica (SPI, I2C):* Existe una línea física explícita de reloj (*Clock*) provista por un máster para sincronizar la lectura de los bits en emisor y receptor.
 - *Asincrónica (UART):* No existe línea física de reloj. Emisor y receptor acuerdan previamente una velocidad fija (*Baud Rate*) y sincronizan sus relojes locales mediante el formato de una trama estructurada (*Start/Stop bits*).
 
+
 #cuadro-concepto(titulo: [Bit Banging vs. Periférico Hardware])[
   - *Bit Banging:* Simular la transmisión serie por software conmutando manualmente pines GPIO mediante delays o timers. Consume valiosos ciclos de CPU y es propenso a fluctuaciones de tiempo (*jitter*).
   - *Periférico Dedicado (UART):* Módulo de hardware integrado que realiza la conversión paralelo-serie y serie-paralelo de forma autónoma mediante registros de desplazamiento y buffers, liberando a la CPU.
 ]
+=== Buffers
 
-== 2. Anatomía Completa de la Trama UART (Protocolo 8N1)
+#grid(
+  columns: (1fr, 1fr),
+  gutter: 10pt,
+  [
+    #cuadro-concepto(titulo: [Hardware Buffers])[
+      #figure(image("/images/buffers.png", width: 100%))
+       Evita que un dispositivo rápido (como la CPU) se detenga o pierda información al comunicarse con otro más lento
+    ]
+  ],
+  [
+    #cuadro-concepto(titulo: [Software Buffers])[
+      Emular en el driver del protocolo serie un TX/RX buffer 
+      de N bytes. 
+    ]
+  ]
+)
+
+==  Anatomía Completa de la Trama UART (Protocolo 8N1)
 
 En reposo, la línea de transmisión se mantiene en nivel lógico ALTO ($1$). La trama estándar *8N1* (8 bits de datos, sin paridad, 1 bit de stop) se compone secuencialmente de:
 
@@ -84,6 +103,10 @@ En reposo, la línea de transmisión se mantiene en nivel lógico ALTO ($1$). La
   3. *Carga Útil (Payload / Data Bits):* Se transmiten de 5 a 8 bits de datos, enviando siempre el *bit menos significativo (LSB) primero*.
   4. *Bit de Paridad (Opcional - Par/Impar/Ninguna):* Bit de control para detección de errores simples de bit.
   5. *Bit(s) de Stop:* Uno o dos bits en nivel *ALTO (1 / $V_"DD"$)* que marcan el cierre de la trama y retornan la línea a reposo.
+
+  #figure(
+image("/images/framing.png", width: 80%)
+)
 ]
 
 === Eficiencia de Canal y Muestreo por Sobremuestreo
@@ -100,6 +123,14 @@ $ T_"bit" = 1 / "Baud Rate" quad ==> quad "A 9600 bps: " T_"bit" = 1 / 9600 appr
   *Tolerancia Máxima:* Dado que emisor y receptor poseen cristales independientes, un desfasaje acumulado mayor al *$2.5 "%"$* entre ambos relojes provoca la lectura incorrecta del bit de Stop, generando un error de trama (*Framing Error - FE*).
 ]
 
+== Bitrate vs Baurate
+ - *BitRate*= bits/Seg (bps)     
+ - *BaudRate*=  Numero de cambios en la señal/seg  o  símbolos /seg 
+ - *Símbolo* = Uno de los diferentes valores en la tensión,frecuencia o Fase 
+
+#figure(
+image("/images/baurate.png", width: 60%), caption: "Ejemplo de baudrate con amplitud y fase. 4 bit / Símbolo => Bitrate=4 x baudrate")
+
 == Capa Física, Estándares Eléctricos y Control de Flujo
 
 La salida nativa del microcontrolador opera en niveles *TTL/CMOS (0V a 3.3V)*. Para comunicarse con computadoras o equipos industriales se requieren adaptadores de capa física:
@@ -113,9 +144,9 @@ La salida nativa del microcontrolador opera en niveles *TTL/CMOS (0V a 3.3V)*. P
   table.header(
     [*Estándar*], [*Niveles de Tensión*], [*Características / Uso*]
   ),
-  [*TTL / CMOS*], [$0 "V" = 0$, $3.3 "V" / 5 "V" = 1$], [Conexiones punto a punto dentro de la misma placa a corta distancia.],
+  [*TTL / CMOS*], [$0 "V" = 0$ \ $3.3 "V"\/5 "V" = 1$], [Conexiones punto a punto dentro de la misma placa a corta distancia.],
   [*RS-232*], [$+3 "V" " a " +15 "V" = 0$ (Space), \ $-3 "V" " a " -15 "V" = 1$ (Mark)], [Lógica invertida de alta tensión. Requiere transceptor como MAX232. Inmunidad a interferencias.],
-  [*USB-Serial (OpenSDA)*], [Conversión USB CDC Virtual COM], [Integrado en FRDM-K64F. Permite ver la UART en la PC mediante terminales (PuTTY, TeraTerm).],
+  [*USB-Serial \  (OpenSDA)*], [Conversión USB CDC Virtual COM], [Integrado en FRDM-K64F. Permite ver la UART en la PC mediante terminales (PuTTY, TeraTerm).],
   [*Comandos AT*], [Lógica de texto sobre UART (`AT`, `AT+CSQ`)], [Estándar de configuración para módulos Bluetooth (HC-05), GSM (SIM800) y GPS.]
 )
 
@@ -124,6 +155,20 @@ La salida nativa del microcontrolador opera en niveles *TTL/CMOS (0V a 3.3V)*. P
 Cuando el receptor no puede procesar los datos a la velocidad que los recibe, utiliza *Control de Flujo por Software*:
 - *XOFF (`0x13` / Ctrl+S):* Enviado por el receptor para ordenar al emisor pausar la transmisión.
 - *XON (`0x11` / Ctrl+Q):* Enviado por el receptor cuando vuelve a tener espacio disponible en el buffer para reanudar la transmisión.
+
+Se deja un margen al contemplar el delay del flag de `Xoff`.
+
+#figure(image("/images/xon.png", width: 60%), caption: "Protocolo Xon/Xoff")
+
+=== Conversores
+
+#figure(image("/images/usb2serial.png", width: 60%), caption: "Adaptador")
+
+Una manera de hacer un conversor casero, seria shortear un esp32 entre `GND` y `RESET` para generar una alta impendanica en el `CPU` para que la señal que entre por el USB va ya directo a `TX` y `RX`.
+
+#figure(image("/images/alt-barata.png", width: 60%), caption: "Alternativa barata")
+
+
 
 == Colas Circulares (Ring Buffers) e Interrupciones
 
@@ -181,10 +226,67 @@ El Kinetis K64F cuenta con 6 módulos UART (`UART0` a `UART5`):
 
   $ "Baud Rate" = "UART_CLK" / (16 times ("SBR" + "BRFA" / 32)) $
 
-  - *Cálculo de SBR:* $"SBR" = "floor"("UART_CLK" / (16 times "Baud Rate"))$
-  - *Cálculo de BRFA:* "BRFA" = "round"((("UART_CLK" / (16 times "Baud Rate")) - SBR) times 32)
+  - *Cálculo de SBR:* $"SBR" = floor("UART_CLK" / (16 times "Baud Rate"))$
+
+  - *Cálculo de BRFA:* $"BRFA" = round((("UART_CLK" / (16 times "Baud Rate")) - "SBR") times 32)$
 ]
 
+```c
+void UART_Init (void){
+// Note: 5.6 Clock Gating page 192
+// Any bus access to a peripheral that has its clock disabled generates an error termination.
+	  SIM->SCGC5 |= SIM_SCGC5_PORTB_MASK;
+
+	  SIM->SCGC4 |= SIM_SCGC4_UART0_MASK;
+		SIM->SCGC4 |= SIM_SCGC4_UART1_MASK;
+		SIM->SCGC4 |= SIM_SCGC4_UART2_MASK;
+		SIM->SCGC4 |= SIM_SCGC4_UART3_MASK;
+		SIM->SCGC1 |= SIM_SCGC1_UART4_MASK;
+		SIM->SCGC1 |= SIM_SCGC1_UART5_MASK;
+
+		NVIC_EnableIRQ(UART0_RX_TX_IRQn);
+		NVIC_EnableIRQ(UART1_RX_TX_IRQn);
+		NVIC_EnableIRQ(UART2_RX_TX_IRQn);
+		NVIC_EnableIRQ(UART3_RX_TX_IRQn);
+		NVIC_EnableIRQ(UART4_RX_TX_IRQn);
+		NVIC_EnableIRQ(UART5_RX_TX_IRQn);
+
+		//UART0 Set UART Speed
+		UART_SetBaudRate(UART0, UART_HAL_DEFAULT_BAUDRATE);
+
+		//Configure UART0 TX and RX PINS
+		PORTB->PCR[UART0_TX_PIN]=0x0; //Clear all bits
+		PORTB->PCR[UART0_TX_PIN]|=PORT_PCR_MUX(PORT_mAlt3); 	 //Set MUX to UART0
+		PORTB->PCR[UART0_TX_PIN]|=PORT_PCR_IRQC(PORT_eDisabled); //Disable interrupts
+//----------------------------------------------------------------------------------
+		PORTB->PCR[UART0_RX_PIN]=0x0; //Clear all bits
+		PORTB->PCR[UART0_RX_PIN]|=PORT_PCR_MUX(PORT_mAlt3); 	 //Set MUX to UART0
+		PORTB->PCR[UART0_RX_PIN]|=PORT_PCR_IRQC(PORT_eDisabled); //Disable interrupts
+
+	//UART0 Baudrate Setup
+		UART_SetBaudRate (UART0, 9600);
+
+	//Enable UART0 Xmiter and Rcvr
+	UART0->C2=UART_C2_TE_MASK | UART_C2_RE_MASK;
+}
+
+void UART_SetBaudRate (UART_Type *uart, uint32_t baudrate){
+	uint16_t sbr, brfa;
+	uint32_t clock;
+
+	clock = ((uart == UART0) || (uart == UART1))?(__CORE_CLOCK__):(__CORE_CLOCK__ >> 1);
+
+	baudrate = ((baudrate == 0)?(UART_HAL_DEFAULT_BAUDRATE):
+			((baudrate > 0x1FFF)?(UART_HAL_DEFAULT_BAUDRATE):(baudrate)));
+
+	sbr = clock / (baudrate << 4);               // sbr = clock/(Baudrate x 16)
+	brfa = (clock << 1) / baudrate - (sbr << 5); // brfa = 2*Clock/baudrate - 32*sbr
+
+	uart->BDH = UART_BDH_SBR(sbr >> 8);
+	uart->BDL = UART_BDL_SBR(sbr);
+	uart->C4 = (uart->C4 & ~UART_C4_BRFA_MASK) | UART_C4_BRFA(brfa);
+}
+```
 == Control de Registros, FIFOs y Driver UART Completo en C
 
 === Registros de Control y Estado

@@ -122,13 +122,13 @@
   ]
 ]
 
-/*
+
 #v(1em)
 
 #outline()
 
 #v(1em)
-*/
+
 #pagebreak()
 #include "files/Clase1.typ"
 
