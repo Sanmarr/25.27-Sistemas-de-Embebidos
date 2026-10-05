@@ -19,7 +19,7 @@
   size: 10pt,
   font: "Liberation Sans"
 )
-
+ 
 // Configuración de página con encabezado y pie estilizado
 #set page(
   paper: "a4",
@@ -146,3 +146,6 @@
 
 #pagebreak()
 #include "files/Clase6.typ"
+
+#pagebreak()
+#include "files/Clase7.typ"

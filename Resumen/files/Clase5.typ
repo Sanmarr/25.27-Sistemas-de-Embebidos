@@ -257,11 +257,7 @@ void UART_Init (void){
 		//Configure UART0 TX and RX PINS
 		PORTB->PCR[UART0_TX_PIN]=0x0; //Clear all bits
 		PORTB->PCR[UART0_TX_PIN]|=PORT_PCR_MUX(PORT_mAlt3); 	 //Set MUX to UART0
-		PORTB->PCR[UART0_TX_PIN]|=PORT_PCR_IRQC(PORT_eDisabled); //Disable interrupts
-//----------------------------------------------------------------------------------
-		PORTB->PCR[UART0_RX_PIN]=0x0; //Clear all bits
-		PORTB->PCR[UART0_RX_PIN]|=PORT_PCR_MUX(PORT_mAlt3); 	 //Set MUX to UART0
-		PORTB->PCR[UART0_RX_PIN]|=PORT_PCR_IRQC(PORT_eDisabled); //Disable interrupts
+		PORTB->PCR[UART0_TX_PIN]|=PORT_PCR_IRQC(PORT_eDisabled); //Disable [interrupts]
 
 	//UART0 Baudrate Setup
 		UART_SetBaudRate (UART0, 9600);
@@ -300,6 +296,8 @@ void UART_SetBaudRate (UART_Type *uart, uint32_t baudrate){
   1. *Primero:* Leer el registro de estado `UARTx_S1`.
   2. *Segundo:* Leer (o escribir) el registro de datos `UARTx_D`.
 ]
+
+
 
 === Configuración de FIFOs de Hardware
 Las UARTs disponen de FIFOs de hardware (`PFIFO`, `TWFIFO`, `RWFIFO`) que permiten configurar marcas de agua (*watermarks*). Por ejemplo, `RWFIFO = 1` genera la interrupción `RDRF` en cuanto ingresa al menos 1 byte en la FIFO de recepción.
