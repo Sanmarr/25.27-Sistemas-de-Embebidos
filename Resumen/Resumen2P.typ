@@ -53,7 +53,7 @@
 )
 
 #set par(justify: true, leading: 0.65em)
-#set heading(numbering: "1.1")
+#set heading(numbering: "1. 1")
 
 // Personalización estilizada de los títulos
 #show heading.where(level: 1): it => block(
@@ -110,7 +110,7 @@
   ) <fig:indice>
   #text(size: 14pt, weight: "bold", fill: rgb("#2b5b84"))[25.27 - Sistemas Embebidos] \
   #v(0.2em)
-  #text(size: 12pt, style: "italic", fill: luma(80))[Resumen] \
+  #text(size: 12pt, style: "italic", fill: luma(80))[Resumen 2do Parcial] \
   #v(0.5em)
   #box(
     fill: rgb("#eef3f8"),
@@ -118,7 +118,7 @@
     radius: 4pt,
     stroke: 0.5pt + rgb("#1a3a6b")
   )[
-    #text(size: 9pt, weight: "bold")[Apunte teórico-práctico basado en el contenido de clase y bibliografía oficial]
+    #text(size: 9pt, weight: "bold")[Apunte teórico-práctico basado en el contenido de clase ]
   ]
 ]
 
@@ -129,6 +129,9 @@
 
 #v(1em)
 
+
+// 1er Parcial
+/*
 #pagebreak()
 #include "files/Clase1.typ"
 
@@ -146,6 +149,12 @@
 
 #pagebreak()
 #include "files/Clase6.typ"
+*/
+
+// 2do Parcial
 
 #pagebreak()
 #include "files/Clase7.typ"
+
+#pagebreak()
+#include "files/Clase8.typ"
