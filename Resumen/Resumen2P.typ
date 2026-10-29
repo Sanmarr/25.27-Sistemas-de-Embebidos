@@ -125,13 +125,16 @@
 
 #v(1em)
 
-#outline()
+#set page(columns: 2)
+#outline(depth : 3)
+#set page(columns: 1)
 
 #v(1em)
 
 
 // 1er Parcial
 /*
+
 #pagebreak()
 #include "files/Clase1.typ"
 
@@ -153,8 +156,11 @@
 
 // 2do Parcial
 
-#pagebreak()
+//#pagebreak()
 #include "files/Clase7.typ"
 
 #pagebreak()
 #include "files/Clase8.typ"
+
+#pagebreak()
+#include "files/Clase9.typ"
