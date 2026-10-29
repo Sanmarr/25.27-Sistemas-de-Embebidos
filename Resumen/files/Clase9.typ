@@ -67,6 +67,11 @@ El Kinetis K64F incorpora *dos módulos ADC* de 16 bits con arquitectura *SAR (S
 - *Hasta 24 canales Single Ended* (`AD[y]`, donde `y` es el número de canal).
 - *4 canales Diferenciales* (`DAD[x][y]`, con `x = P(+)` o `M(−)`).
 
+#figure(
+  image("/images/2P/selec.png", width: 100%),
+  caption: [El canal a convertir se selecciona con el campo `ADCH[4:0]` del registro `ADCx_SC1`]
+  ) <fig:selec>
+
 #cuadro-concepto(titulo: [Notación de Canales ADC])[
 - *Diferencial:* `DAD[x][y]` donde `x = M(−)` o `P(+)`, `y = N° de canal`.
 - *Single Ended:* `AD[y]` — equivalente a `DADP[y]` cuando `DIFF = 0`.
@@ -105,7 +110,13 @@ void ADC_Start(ADC_t adc, ADCChannel_t channel, ADCMux_t mux)
 
 === Reloj del ADC
 
+#figure(
+  image("/images/2P/clk.png", width: 60%)
+  ) <fig:clk>
+
 El módulo ADC requiere una señal de reloj de entrada. Dicha señal se configura en `ADCx_CFG1` mediante dos campos:
+
+
 
 #table(
   columns: (1.5fr, 1.5fr, 3fr),
@@ -167,11 +178,27 @@ El flag `COCO` se limpia automáticamente al *leer* el registro `ADCx_Rn`. No es
 El K64F incorpora un *Comparador Analógico (CMP)* integrado que puede usarse en conjunto con el ADC. Sus características principales son:
 
 - *DAC interno de 64 niveles* para generar la tensión de referencia de comparación.
+  #figure(
+    image("/images/2P/dac-cmp (2).png", width: 60%)
+    ) <fig:dac-comp>
 - *Control de histéresis* configurable por hardware para evitar oscilaciones en la salida.
 - Múltiples modos de operación:
   - *Continuo:* La salida `COUT` refleja directamente la comparación en modo combinacional (sin reloj).
+    #figure(
+    image("/images/2P/continuo.png", width: 60%)
+    ) <fig:continuo>
   - *Sampled Non-Filtered:* `COUTA` se muestrea en cada flanco ascendente del reloj del bloque de filtro.
+    #figure(
+    image("/images/2P/sampled.png", width: 60%)
+    ) <fig:sampled>
   - *Windowed:* La salida analógica solo pasa a `COUTA` cuando la señal `WINDOW` está en alto (típicamente proveniente del PDB). El último valor queda latched cuando `WINDOW = 0`.
+  #figure(
+    image("/images/2P/window.png", width: 60%)
+    ) <fig:window>
+
+  #figure(
+    image("/images/2P/window2.png", width: 60%)
+    ) <fig:window2>
 
 /*
 #text(fill: red)[
@@ -182,9 +209,12 @@ El K64F incorpora un *Comparador Analógico (CMP)* integrado que puede usarse en
 ]
 */
 
----
-
+#pagebreak()
 == PIT: Periodic Interrupt Timer
+
+#figure(
+    image("/images/2P/PIT.png", width: 60%)
+    ) <fig:PIT>
 
 === Descripción General y Uso
 
@@ -276,13 +306,23 @@ PIT->CHANNEL[1].TCTRL = PIT_TCTRL_TEN_MASK;
   ]
 )
 
----
-
+#pagebreak()
 == DMA: Direct Memory Access
+
+#figure(
+    image("/images/2P/dma.png", width: 60%)
+    ) <fig:dma>
+
+ 
 
 === Concepto y Motivación
 
 El *DMA (Direct Memory Access)* es un controlador de hardware que realiza transferencias de datos entre memoria y periféricos (o entre dos zonas de memoria) *sin intervención de la CPU*. Esto libera al procesador para ejecutar otras tareas mientras el DMA opera de forma autónoma sobre el bus del sistema.
+
+ #figure(
+    image("/images/2P/dma2.png", width: 60%),
+     caption: [Programmed I/O Transfer vs  *DMA Transfer*]
+    ) <fig:dma2>
 
 El flujo de una transferencia DMA sigue estos pasos:
 
@@ -304,10 +344,22 @@ El flujo de una transferencia DMA sigue estos pasos:
 
 === Arquitectura del eDMA en el K64F
 
+#figure(
+    image("/images/2P/edMa.png", width: 60%)
+    ) <fig:edMa>
+
 El Kinetis K64F incorpora un módulo *eDMA (Enhanced DMA)* de *16 canales* con las siguientes características:
 
 - *DMAMUX (DMA Multiplexer):* Rutea hasta *52 fuentes de DMA* (slots de periféricos) hacia los 16 canales del eDMA.
+
+  #figure(
+    image("/images/2P/DMA-MUX.png", width: 80%)
+    ) <fig:MUX>
+
+
 - *TCD Memory:* Cada canal del eDMA tiene un *TCD (Transfer Control Descriptor)* de 32 bytes (8 palabras de 32 bits) que describe completamente la transferencia.
+
+
 
 /*
 #text(fill: red)[
@@ -334,16 +386,22 @@ El DMAMUX tiene tres modos configurables para cada canal mediante el registro `D
   [*Periodic Trigger*], [`ENBL=1`, `TRIG=1`], [El request del periférico queda bloqueado (*gated*) hasta que el PIT genera un trigger. Solo los canales 0..3 soportan este modo.],
 )
 
+#figure(
+    image("/images/2P/trigger.png", width: 80%)
+    ) <fig:trigger>
+
 #cuadro-registro(titulo: [Registro DMAMUX\_CHCFGn])[
 - `ENBL`: Habilita el canal DMA.
 - `TRIG`: Habilita el trigger periódico (modo Periodic Trigger con PIT).
 - `SOURCE[5:0]`: Número de slot del periférico fuente (0..51). Ver tabla de slots en el Reference Manual del K64.
 ]
 
+
+
 ```c
 // Canal 0, fuente = SPI (slot 16), con trigger periódico del PIT
 DMAMUX->CHCFG[0] |= DMAMUX_CHCFG_ENBL_MASK | DMAMUX_CHCFG_SOURCE(16)
-                  | DMAMUX_CHCFG_TRIG_MASK;
+                  | DMA MUX_CHCFG_TRIG_MASK;
 
 // Canal 0, fuente = PORTC (slot 51), modo normal (GPIO)
 DMAMUX->CHCFG[0] |= DMAMUX_CHCFG_ENBL_MASK | DMAMUX_CHCFG_SOURCE(51);
@@ -365,6 +423,10 @@ DMAMUX->CHCFG[0] |= DMAMUX_CHCFG_ENBL_MASK | DMAMUX_CHCFG_TRIG_MASK
   [*Gated (Periféricos)*], [Slots 0..41], [Throttled. El request queda gateado hasta que el periférico lo activa. Permite trigger periódico con PIT (canales 0..3).],
   [*Always-Enabled*], [10 slots (ej. slot 63)], [Sin throttling. Transferencias rápidas: memoria→memoria, GPIO rápido, activación por software.],
 )
+
+#figure(
+    image("/images/2P/always.png", width: 100%)
+    ) <fig:always>
 
 === TCD: Transfer Control Descriptor
 
@@ -394,6 +456,20 @@ typedef struct {
   - Cargar un nuevo TCD en modo Scatter-Gather (`CSR[ESG] = 1`).
 ]
 
+#figure(
+    image("/images/2P/loops.png", width: 80%),
+    caption: [Source Address Generation Diagram]
+    ) <fig:loops>
+
+#figure(
+    image("/images/2P/loop3.png", width: 60%)
+    ) <fig:loop3>
+
+    #figure(
+    image("/images/2P/loop2.png", width: 60%),
+    caption: [Transferencia de 4 bytes por minor loop]
+    ) <fig:loop2>
+
 ==== Campos Principales del TCD
 
 #table(
@@ -418,6 +494,12 @@ typedef struct {
 ==== Buffer Circular con SMOD / DMOD
 
 El campo `SMOD` (o `DMOD`) en `ATTR` define un *buffer circular por hardware*: los $K$ bits menos significativos de `SADDR` quedan confinados en un buffer de tamaño $M = 2^K$. La dirección base debe ser múltiplo de $2^K$.
+
+#figure(
+    image("/images/2P/buffer.png", width: 80%),
+    caption: [Ejemplo de buffer circular]
+    ) <fig:buffer>
+
 
 ```c
 // Buffer circular de 4 elementos de 1 byte: SMOD=2 → M = 2^2 = 4
@@ -496,6 +578,7 @@ $T_"PWM" = (1/(50 "MHz")) times 32 times 10000 = 6.4 "ms"$
 
 === Modos Avanzados del DMA
 
+
 ==== Scatter-Gather
 
 El modo *Scatter-Gather* permite encadenar múltiples TCDs en una *lista enlazada circular*: al finalizar el major loop de un TCD, el hardware carga automáticamente el siguiente TCD desde memoria principal sin intervención de la CPU.
@@ -511,4 +594,8 @@ TCD_B.DLASTSGA = (uint32_t)&TCD_A;
 ==== Channel-to-Channel Linking
 
 El *Channel Linking* permite que al finalizar un minor loop (o major loop) de un canal DMA, se active automáticamente otro canal DMA. Se usa para encadenar operaciones secuenciales complejas completamente por hardware.
+
+
+
+
 

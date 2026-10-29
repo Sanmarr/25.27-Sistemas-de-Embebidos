@@ -118,23 +118,20 @@
     radius: 4pt,
     stroke: 0.5pt + rgb("#1a3a6b")
   )[
-    #text(size: 9pt, weight: "bold")[Apunte teórico-práctico basado en el contenido de clase ]
+    #text(size: 9pt, weight: "bold")[Ignacio Sammartino ]
   ]
 ]
 
 
 #v(1em)
 
-#set page(columns: 2)
-#outline(depth : 3)
-#set page(columns: 1)
+#outline(depth: 2)
 
 #v(1em)
 
 
 // 1er Parcial
 /*
-
 #pagebreak()
 #include "files/Clase1.typ"
 
@@ -156,7 +153,7 @@
 
 // 2do Parcial
 
-//#pagebreak()
+#pagebreak()
 #include "files/Clase7.typ"
 
 #pagebreak()
