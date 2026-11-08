@@ -53,7 +53,7 @@
 )
 
 #set par(justify: true, leading: 0.65em)
-#set heading(numbering: "1. 1")
+#set heading(numbering: none)
 
 // Personalización estilizada de los títulos
 #show heading.where(level: 1): it => block(
@@ -125,7 +125,7 @@
 
 #v(1em)
 
-#outline(depth: 2)
+#outline(depth: 3)
 
 #v(1em)
 
@@ -161,3 +161,7 @@
 
 #pagebreak()
 #include "files/Clase9.typ"
+//#include "files/Clase9.typ"
+
+#pagebreak()
+#include "files/Clase10.typ"

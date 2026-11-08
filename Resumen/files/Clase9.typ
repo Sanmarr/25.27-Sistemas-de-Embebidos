@@ -328,10 +328,13 @@ El flujo de una transferencia DMA sigue estos pasos:
 
 1. *Configuración:* La CPU programa los registros del controlador DMA (dirección origen, destino y cantidad de datos).
 2. *Solicitud del Periférico:* El periférico genera un request de DMA cuando está listo para transferir datos.
-3. *Hold Request:* El controlador DMA solicita el bus a la CPU.
-4. *Hold Acknowledge:* La CPU libera el bus y pone sus salidas en alta impedancia (HI-Z).
-5. *Transferencia:* El controlador DMA realiza la transferencia de datos.
-6. *Interrupción Final:* Al completar la transferencia, el DMA genera una interrupción hacia la CPU.
+3. *Arbitraje del bus:* El controlador DMA obtiene acceso al bus compartido para realizar la transferencia.
+4. *Transferencia:* El DMA lee desde la dirección de origen y escribe en la dirección de destino; la CPU puede continuar ejecutando instrucciones cuando el bus está disponible.
+5. *Fin de transferencia:* El contador del canal llega a cero. Si se habilitó la interrupción de fin de major loop, el DMA notifica a la CPU.
+
+#cuadro-atencion(titulo: [Diagrama conceptual de bus])[
+Las señales `Hold Request`, `Hold Acknowledge` y `HI-Z` del diagrama ilustran un modelo general de DMA. En el K64F, el eDMA es un maestro del bus del sistema y su acceso se arbitra junto con el de la CPU; no se deben interpretar esas señales como pines externos del microcontrolador.
+]
 
 /*
 #text(fill: red)[
@@ -400,15 +403,15 @@ El DMAMUX tiene tres modos configurables para cada canal mediante el registro `D
 
 ```c
 // Canal 0, fuente = SPI (slot 16), con trigger periódico del PIT
-DMAMUX->CHCFG[0] |= DMAMUX_CHCFG_ENBL_MASK | DMAMUX_CHCFG_SOURCE(16)
-                  | DMA MUX_CHCFG_TRIG_MASK;
+DMAMUX->CHCFG[0] = DMAMUX_CHCFG_ENBL_MASK | DMAMUX_CHCFG_SOURCE(16)
+                 | DMAMUX_CHCFG_TRIG_MASK;
 
 // Canal 0, fuente = PORTC (slot 51), modo normal (GPIO)
-DMAMUX->CHCFG[0] |= DMAMUX_CHCFG_ENBL_MASK | DMAMUX_CHCFG_SOURCE(51);
+DMAMUX->CHCFG[0] = DMAMUX_CHCFG_ENBL_MASK | DMAMUX_CHCFG_SOURCE(51);
 
 // Canal 0, fuente = Always-enabled (slot 63), con trigger del PIT
-DMAMUX->CHCFG[0] |= DMAMUX_CHCFG_ENBL_MASK | DMAMUX_CHCFG_TRIG_MASK
-                  | DMAMUX_CHCFG_SOURCE(63);
+DMAMUX->CHCFG[0] = DMAMUX_CHCFG_ENBL_MASK | DMAMUX_CHCFG_TRIG_MASK
+                 | DMAMUX_CHCFG_SOURCE(63);
 ```
 
 === Tipos de Fuentes DMA
@@ -435,12 +438,12 @@ El TCD es la estructura que describe completamente cada transferencia DMA. Cada 
 ```c
 typedef struct {
     uint32_t SADDR;          // Source Address (dirección de origen)
-    uint16_t SOFF;           // Source Offset (offset por transacción menor)
+    uint16_t SOFF;           // Source Offset (offset por transferencia)
     uint16_t ATTR;           // Transfer Attributes (tamaño, SMOD, DMOD)
     uint32_t NBYTES_MLNO;    // Bytes por minor loop (por cada DMA request)
     uint32_t SLAST;          // Ajuste de SADDR al finalizar el major loop
     uint32_t DADDR;          // Destination Address (dirección de destino)
-    uint16_t DOFF;           // Destination Offset (offset por transacción menor)
+    uint16_t DOFF;           // Destination Offset (offset por transferencia)
     uint16_t CITER_ELINKNO;  // Contador actual del major loop
     uint32_t DLASTSGA;       // Ajuste de DADDR / puntero al siguiente TCD (S&G)
     uint16_t CSR;            // Control and Status (INTMAJOR, ESG, DREQ, etc.)
@@ -480,9 +483,9 @@ typedef struct {
   align: (left, left),
   table.header([*Campo*], [*Descripción*]),
   [`SADDR`], [Dirección de inicio de la fuente de datos.],
-  [`SOFF`], [Offset que se suma a `SADDR` tras cada minor loop. `0` = dirección fija (ej. registro de periférico).],
+  [`SOFF`], [Offset que se suma a `SADDR` después de cada transferencia de origen. `0` = dirección fija (ej. registro de periférico).],
   [`DADDR`], [Dirección de inicio del destino de datos.],
-  [`DOFF`], [Offset que se suma a `DADDR` tras cada minor loop. `0` = destino fijo.],
+  [`DOFF`], [Offset que se suma a `DADDR` después de cada transferencia de destino. `0` = dirección fija (ej. registro de periférico).],
   [`ATTR`], [`SSIZE`/`DSIZE`: tamaño de dato (`0`=8bit, `1`=16bit, `2`=32bit). `SMOD`/`DMOD`: habilita buffer circular (ver más abajo).],
   [`NBYTES`], [Número de bytes transferidos por minor loop (por cada request del periférico).],
   [`CITER`/`BITER`], [Contador actual e inicial del major loop. *Deben inicializarse con el mismo valor.*],
@@ -491,9 +494,69 @@ typedef struct {
   [`CSR`], [Control: `INTMAJOR` = interrupción al fin del major loop; `ESG` = scatter-gather; `DREQ` = deshabilitar request al finalizar.],
 )
 
+==== Generación de Direcciones y Tamaños de Transferencia
+
+En cada transferencia, el eDMA accede a las direcciones actuales de origen (`SADDR`) y destino (`DADDR`). Después de cada elemento transferido, actualiza cada dirección con su offset:
+
+$"SADDR"_"siguiente" = "SADDR" + "SOFF"$
+$"DADDR"_"siguiente" = "DADDR" + "DOFF"$
+
+Un offset igual a cero permite leer repetidamente un registro de periférico o escribir siempre en el mismo registro. Para recorrer una tabla en memoria, el offset suele ser igual al tamaño de cada elemento.
+
+El campo `ATTR` selecciona independientemente el tamaño de los elementos de origen (`SSIZE`) y destino (`DSIZE`): `0` = 8 bits, `1` = 16 bits y `2` = 32 bits. Las direcciones y los tamaños deben ser compatibles con el periférico y con las restricciones de alineación de la memoria.
+
+#cuadro-ejemplo(titulo: [Recorrer un arreglo de palabras])[
+Para copiar palabras de 32 bits desde memoria a un registro fijo:
+- `SSIZE = DSIZE = 2` (32 bits).
+- `SOFF = 4` avanza al siguiente elemento del arreglo.
+- `DOFF = 0` conserva la dirección del registro de destino.
+- `NBYTES = 4` transfiere una palabra por cada servicio del canal.
+]
+
+==== Minor Loop y Major Loop
+
+Un *minor loop* es la cantidad de bytes indicada por `NBYTES` para un servicio del canal. Puede incluir varias transferencias elementales; por ejemplo, `NBYTES = 64` con elementos de 32 bits mueve 16 elementos por servicio. El número de bytes debe ser compatible con los tamaños y alineaciones configurados.
+
+`CITER` cuenta cuántos minor loops faltan para completar el *major loop*. El eDMA decrementa el contador al completar cada servicio. Al llegar a cero, puede aplicar los ajustes finales de dirección, generar una interrupción, activar otro canal y, si el canal sigue habilitado, recargar `CITER` desde `BITER`. Al configurar inicialmente el TCD, `CITER` y `BITER` deben tener el mismo valor; para un único servicio, ambos valen `1`.
+
+El ancho disponible para el contador depende de `ELINK`: con linking desactivado se dispone de hasta 15 bits para el conteo; al habilitarlo, parte del campo se usa para seleccionar el canal enlazado y quedan 9 bits para el conteo.
+
+==== NBYTES y Minor Loop Mapping
+
+Con el mapeo de minor loop desactivado (`CR[EMLM] = 0`), se usa `NBYTES_MLNO`. Si se activa `EMLM`, se usan `NBYTES_MLOFFNO` (sin offset adicional) o `NBYTES_MLOFFYES` (con offset adicional habilitado).
+
+En `NBYTES_MLOFFYES`, `SMLOE` y `DMLOE` determinan si el offset firmado `MLOFF` se suma a la dirección de origen o de destino al finalizar cada minor loop. Este ajuste es independiente de `SOFF` y `DOFF`, que se aplican después de cada elemento transferido.
+
+#cuadro-atencion(titulo: [Valor de NBYTES])[
+No programes `NBYTES = 0` esperando una transferencia vacía: el eDMA interpreta ese valor como una transferencia de $2^32$ bytes. Configura un conteo válido para el modo de mapeo de minor loop seleccionado.
+]
+
+==== Ajustes al Final del Major Loop y Estado
+
+- `SLAST` se suma a `SADDR` cuando termina el major loop. Un valor negativo puede volver al inicio de una tabla, por ejemplo `SLAST = -sizeof(buffer)`.
+- Si `ESG = 0`, `DLASTSGA` se suma a `DADDR` al terminar el major loop.
+- Si `ESG = 1`, `DLASTSGA` contiene la dirección del siguiente TCD en memoria. El descriptor debe cumplir la alineación requerida por el hardware.
+- `CSR` controla, entre otras funciones, la interrupción de fin de major loop (`INTMAJOR`), Scatter-Gather (`ESG`) y la deshabilitación de solicitudes al finalizar (`DREQ`).
+
+El flag `DONE` indica que el major loop terminó y `ACTIVE` que el canal está ejecutando una transferencia. Estos estados ayudan a comprobar el avance del canal durante la depuración.
+
+==== Habilitación de Solicitudes del Canal
+
+La selección de fuente en `DMAMUX_CHCFGn` y la habilitación de solicitudes del eDMA son pasos distintos. El canal debe tener su request habilitado en `DMA_ERQ` para aceptar solicitudes:
+
+```c
+// Habilitar solicitudes del canal 0
+DMA0->SERQ = DMA_SERQ_SERQ(0);
+
+// Deshabilitar solicitudes del canal 0
+DMA0->CERQ = DMA_CERQ_CERQ(0);
+```
+
+`SERQ` y `CERQ` modifican el bit correspondiente de `ERQ` sin requerir una operación de lectura-modificación-escritura sobre todo el registro. La configuración del TCD y del DMAMUX debe estar lista antes de habilitar la solicitud.
+
 ==== Buffer Circular con SMOD / DMOD
 
-El campo `SMOD` (o `DMOD`) en `ATTR` define un *buffer circular por hardware*: los $K$ bits menos significativos de `SADDR` quedan confinados en un buffer de tamaño $M = 2^K$. La dirección base debe ser múltiplo de $2^K$.
+El campo `SMOD` (o `DMOD`) en `ATTR` define un *buffer circular por hardware* de tamaño $M = 2^K$ bytes. El hardware confina las actualizaciones de `SADDR` (o `DADDR`) a esa región. La dirección base debe estar alineada al tamaño del buffer: sus $K$ bits menos significativos deben ser cero.
 
 #figure(
     image("/images/2P/buffer.png", width: 80%),
@@ -502,13 +565,16 @@ El campo `SMOD` (o `DMOD`) en `ATTR` define un *buffer circular por hardware*: l
 
 
 ```c
-// Buffer circular de 4 elementos de 1 byte: SMOD=2 → M = 2^2 = 4
+// Buffer circular de 4 bytes: SMOD=2 → M = 2^2 = 4
 DMA0->TCD[0].ATTR = DMA_ATTR_SSIZE(0) | DMA_ATTR_DSIZE(0) | DMA_ATTR_SMOD(2);
 ```
 
+El tamaño definido por `SMOD`/`DMOD` siempre es potencia de dos. Para un buffer de tamaño arbitrario, por ejemplo 10 elementos, se puede usar Scatter-Gather con varios TCD que procesen segmentos del buffer.
+
+/*
 === Ejemplo Práctico: DMA + PIT → GPIO (Toggle de Pin)
 
-Generar una señal cuadrada en `PTC0` escribiendo desde una tabla en memoria al registro `PTOR` del puerto C, con el PIT como trigger periódico a $5.1 "ms"$:
+Generar una señal cuadrada en `PTC0` escribiendo desde una tabla en memoria al registro `PTOR` del puerto C, con el PIT como trigger periódico cada $5.12 "ms"$:
 
 #cuadro-ejemplo(titulo: [DMA + PIT → GPIO Toggle (PTC0)])[
 ```c
@@ -576,26 +642,46 @@ Con prescaler $32 times$ y Bus Clock $50 "MHz"$:
 $T_"PWM" = (1/(50 "MHz")) times 32 times 10000 = 6.4 "ms"$
 ]
 
+*/
 === Modos Avanzados del DMA
 
 
 ==== Scatter-Gather
 
-El modo *Scatter-Gather* permite encadenar múltiples TCDs en una *lista enlazada circular*: al finalizar el major loop de un TCD, el hardware carga automáticamente el siguiente TCD desde memoria principal sin intervención de la CPU.
+El modo *Scatter-Gather* permite que un canal use varios TCD. Al finalizar el major loop, el hardware carga el siguiente TCD desde memoria principal sin intervención de la CPU. Los TCD pueden formar una lista circular si cada uno apunta al siguiente y el último vuelve al primero.
 
 Esto se usa para implementar buffers de tamaño arbitrario (no potencia de 2) o esquemas de doble buffer (*ping-pong*):
 
 ```c
-// Encadenamiento circular: al terminar TCD_A se carga TCD_B y viceversa
+// ESG = 1 en ambos descriptores; cada dirección debe apuntar a un TCD alineado.
 TCD_A.DLASTSGA = (uint32_t)&TCD_B;
 TCD_B.DLASTSGA = (uint32_t)&TCD_A;
 ```
 
 ==== Channel-to-Channel Linking
 
-El *Channel Linking* permite que al finalizar un minor loop (o major loop) de un canal DMA, se active automáticamente otro canal DMA. Se usa para encadenar operaciones secuenciales complejas completamente por hardware.
+El *Channel Linking* activa otro canal al completar un minor loop (`ELINK`) o un major loop (`MAJORELINK`). El campo `LINKCH` o `MAJORLINKCH` selecciona el canal que se dispara. A diferencia de Scatter-Gather, no se carga un nuevo TCD ni se cambia la configuración del canal enlazado: se activa otro canal que ya fue configurado.
 
+#table(
+  columns: (1.5fr, 2fr, 2fr),
+  inset: 6pt,
+  stroke: 0.5pt + luma(180),
+  fill: (_, y) => if y == 0 { rgb("#1a5fb4") } else if calc.odd(y) { rgb("#f4f7fa") },
+  align: (left, left, left),
+  table.header([*Característica*], [*Scatter-Gather*], [*Channel Linking*]),
+  [Qué ocurre], [El canal carga otro TCD y cambia su configuración.], [Se activa otro canal ya configurado.],
+  [Canales utilizados], [Un mismo canal puede ejecutar varios TCD.], [Participan varios canales independientes.],
+  [Memoria adicional], [Requiere TCD en memoria alineados para los cambios.], [No requiere TCD adicionales para enlazar canales.],
+)
 
+==== Ejemplo: Buffer Circular de Tamaño No Potencia de Dos
 
+Para representar un buffer de 10 elementos, el modo `SMOD`/`DMOD` no alcanza porque solo admite tamaños potencia de dos. Una alternativa es dividir la copia en dos major loops de 5 elementos:
 
+1. El primer TCD copia los elementos `0..4` y parte de las direcciones base de origen y destino.
+2. Al terminar el primer major loop, Scatter-Gather carga el segundo TCD, que copia los elementos `5..9` desde las direcciones desplazadas cinco elementos.
+3. El segundo TCD puede apuntar de vuelta al primero. Al terminar cada mitad, una interrupción de major loop permite que la CPU procese el bloque y agregue nuevos datos al buffer de origen.
 
+Así se implementa una secuencia circular de tamaño arbitrario usando TCDs encadenados y sin tener que mover los datos con la CPU.
+
+ 
