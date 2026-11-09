@@ -24,22 +24,6 @@
 #set page(
   paper: "a4",
   margin: (top: 2.2cm, bottom: 2cm, x: 1.8cm),
-  header: context [
-    #grid(
-      columns: (1fr, auto),
-      align: horizon,
-      [
-        #text(weight: "bold", fill: rgb("#1a3a6b"))[25.27 - Sistemas Embebidos]
-        #h(0.8em) | #h(0.8em)
-        #text(style: "italic", fill: luma(80))[Resumen]
-      ],
-      [
-        #text(size: 8.5pt, weight: "bold", fill: rgb("#1a3a6b"))[ITBA]
-      ]
-    )
-    #v(2pt)
-    #line(length: 100%, stroke: 0.8pt + rgb("#1a3a6b"))
-  ],
   footer: context [
     #line(length: 100%, stroke: 0.4pt + luma(200))
     #v(2pt)
@@ -51,6 +35,10 @@
   ],
   numbering: "1 / 1"
 )
+
+
+
+
 
 #set par(justify: true, leading: 0.65em)
 #set heading(numbering: none)
@@ -106,7 +94,7 @@
   #text(size: 18pt, weight: "bold", fill: rgb("#1a3a6b"))[Instituto Tecnológico de Buenos Aires (ITBA)] \
   #v(0.3em)
   #figure(
-  image("/images/itbaSVG_black.svg", width: 40%)
+  image("/images/itbaSVG_black.svg", width: 80%)
   ) <fig:indice>
   #text(size: 14pt, weight: "bold", fill: rgb("#2b5b84"))[25.27 - Sistemas Embebidos] \
   #v(0.2em)
@@ -122,12 +110,24 @@
   ]
 ]
 
+#set page(
+  header: context [
+    #grid(
+      columns: (1fr, auto),
+      align: center,
+      [#align(left)[25.27 - Sistemas Embebidos ]],
+      [#align(right)[#image("/images/itbaSVG.svg", width: 30%)]]
+    )
+  ],
+  numbering: "1 of 1",
+  columns: 1,
+)
 
-#v(1em)
 
+#set page(columns: 2)
 #outline(depth: 3)
+#set page(columns: 1)
 
-#v(1em)
 
 
 // 1er Parcial
@@ -160,8 +160,8 @@
 #include "files/Clase8.typ"
 
 #pagebreak()
-#include "files/Clase9.typ"
 //#include "files/Clase9.typ"
+#include "files/Clase9b.typ"
 
 #pagebreak()
 #include "files/Clase10.typ"
