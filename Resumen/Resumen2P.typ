@@ -6,7 +6,7 @@
 // =====================================================================
 
 #set document(
-  title: [Resumen Didáctico Clase 1 - Buses y GPIO],
+  title: [25.27 - Sistemas Embebidos],
   author: "Ignacio Sammartino",
   description: "Apunte Sistemas Embebidos (ITBA)",
   keywords: ("sistemas embebidos", "gpio", "k64f", "buses", "typst", "itba")
