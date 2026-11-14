@@ -160,8 +160,8 @@
 #include "files/Clase8.typ"
 
 #pagebreak()
-//#include "files/Clase9.typ"
-#include "files/Clase9b.typ"
+//#include "files/Clase9b.typ"
+#include "files/Clase9.typ"
 
 #pagebreak()
 #include "files/Clase10.typ"

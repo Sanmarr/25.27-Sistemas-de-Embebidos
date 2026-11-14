@@ -84,7 +84,7 @@ La idea final es una cadena armada *toda por hardware*: *PIT → (trigger) → A
 == ADC: Conversor Analógico–Digital
 // =====================================================================
 
-=== 1. Qué es y qué tiene el K64F
+=== Qué es y qué tiene el K64F
 
 Un ADC transforma una tensión (analógica) en un número entero (digital). El K64F tiene *dos módulos ADC de 16 bits* con arquitectura *SAR (Successive Approximation Register)*: el conversor va decidiendo el resultado *un bit por vez, del más significativo al menos significativo*, comparando la entrada contra una tensión generada por un DAC interno (es como una búsqueda binaria).
 
