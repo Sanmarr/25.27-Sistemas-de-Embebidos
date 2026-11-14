@@ -17,7 +17,7 @@
   lang: "es",
   region: "AR",
   size: 10pt,
-  font: "Liberation Sans"
+  font: "Liberation Sans" //Inter, Liberation Sans, Gentium, 
 )
  
 // Configuración de página con encabezado y pie estilizado
@@ -165,3 +165,6 @@
 
 #pagebreak()
 #include "files/Clase10.typ"
+
+#pagebreak()
+#include "files/Clase11.typ"

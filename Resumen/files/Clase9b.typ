@@ -330,7 +330,7 @@ PIT->CHANNEL[1].TCTRL = PIT_TCTRL_TEN_MASK;
 == DMA: Direct Memory Access
 // =====================================================================
 
-=== 1. Qué es y por qué se usa
+=== Qué es y por qué se usa
 
 // img: /images/2P/dma.png
 #imagen([CPU "durmiendo" mientras el DMA transfiere de un periférico a la memoria (diapositiva 1)])
@@ -363,7 +363,7 @@ El *DMA* es un controlador de hardware que *mueve datos entre memoria y perifér
 `Hold Request`, `Hold Acknowledge` y `HI-Z` ilustran el DMA clásico. En el K64F, el *eDMA es un maestro del bus del sistema* y su acceso se arbitra junto con el de la CPU a través del crossbar. No son pines externos del microcontrolador.
 ]
 
-=== 2. Las piezas del DMA en el K64F
+=== Las piezas del DMA en el K64F
 
 Para entender el DMA del K64F alcanza con recordar *tres bloques* y qué hace cada uno:
 
@@ -403,7 +403,7 @@ SIM->SCGC7 |= SIM_SCGC7_DMA_MASK;      // el eDMA ya viene habilitado, pero conv
 // img: /images/2P/ (tabla de clocks y registros SIM_SCGC6/SCGC7, diapositivas 10 y 11)
 #imagen([Tabla de clock source de DMA y DMAMUX, y registros `SIM_SCGC6` / `SIM_SCGC7` con los bits resaltados (diapositivas 10 y 11)])
 
-=== 3. DMAMUX: el ruteador de requests
+=== DMAMUX: el ruteador de requests
 
 El *DMAMUX* conecta hasta *52 slots* (fuentes de periféricos) con los *16 canales* del eDMA. Cada canal se configura con su propio registro `DMAMUX_CHCFGn`.
 
@@ -470,7 +470,7 @@ DMAMUX->CHCFG[0] = DMAMUX_CHCFG_ENBL_MASK | DMAMUX_CHCFG_TRIG_MASK
                  | DMAMUX_CHCFG_SOURCE(63);
 ```
 
-=== 4. Trigger periódico: Gated vs. Always-on
+=== Trigger periódico: Gated vs. Always-on
 
 Solo los *canales 0 a 3* pueden usar el trigger periódico, y cada uno está atado a un canal del PIT:
 
@@ -545,7 +545,7 @@ El campo `IRQC` de `PORTx_PCRn` decide qué hace el pin ante un evento:
   [`1100`], [Interrupción en nivel lógico 1.],
 )
 
-=== 5. El eDMA y el TCD (la "orden de trabajo")
+=== El eDMA y el TCD (la "orden de trabajo")
 
 El eDMA tiene dos partes:
 
@@ -617,7 +617,7 @@ Un TCD responde a estas preguntas:
 - *¿Qué hago al terminar todo?* `SLAST`, `DLASTSGA` y `CSR`.
 ]
 
-=== 6. Generación de direcciones y tamaño de datos
+=== Generación de direcciones y tamaño de datos
 
 Después de cada dato transferido, el eDMA actualiza cada dirección sumándole su offset:
 
@@ -649,7 +649,7 @@ El tamaño de cada dato se elige por separado para origen (`SSIZE`) y destino (`
 - `NBYTES = 4`: una palabra por cada request.
 ]
 
-=== 7. Minor loop y Major loop
+=== Minor loop y Major loop
 
 Son las dos "vueltas" del DMA, y confunden bastante. Pensalo así:
 
@@ -707,7 +707,7 @@ La forma del campo `NBYTES` depende del bit `CR[EMLM]` (Enable Minor Loop Mappin
 
 `MLOFF` se suma a la dirección de origen (si `SMLOE = 1`) o a la de destino (si `DMLOE = 1`) *cada vez que termina un minor loop*. Es independiente de `SOFF` y `DOFF`, que se aplican *después de cada elemento*.
 
-=== 8. Qué pasa al terminar el major loop
+=== Qué pasa al terminar el major loop
 
 Cuando `CITER` llega a `0`, el eDMA hace los ajustes finales:
 
@@ -740,7 +740,7 @@ Si `SLAST = -sizeof(tabla)` y `DREQ = 0`, al terminar el major loop `SADDR` vuel
 
 `DONE` y `ACTIVE` ayudan a verificar el avance del canal durante la depuración.
 
-=== 9. Habilitar el canal: `ERQ`, `SERQ` y `CERQ`
+=== Habilitar el canal: `ERQ`, `SERQ` y `CERQ`
 
 Hay *dos pasos distintos*, y es común olvidarse del segundo:
 
@@ -767,7 +767,7 @@ DMA0->CERQ = DMA_CERQ_CERQ(0);   // deshabilita las solicitudes del canal 0
 Primero se deja *listo el TCD y el DMAMUX*, y *recién después* se habilita el request en `ERQ`.
 ]
 
-=== 10. Buffer circular por hardware: `SMOD` y `DMOD`
+=== Buffer circular por hardware: `SMOD` y `DMOD`
 
 Los campos `SMOD` (origen) y `DMOD` (destino) de `ATTR` convierten una región de memoria en un *buffer circular por hardware* de tamaño $M = 2^K$ bytes, con $K$ = valor del campo. El hardware deja que cambien *solo los $K$ bits menos significativos* de la dirección; el resto queda fijo, así que la dirección *da la vuelta* dentro del bloque.
 
@@ -840,7 +840,7 @@ El destino nunca sale de los 4 bytes (`dest[0..3]`): cuando `DADDR` llegaría a 
 // img: /images/2P/ (captura del debugger con destinationBuffer, TCD0_DADDR, TCD0_SADDR y TCD0_CITER, diapositiva 41)
 #imagen([Capturas del debugger para cada request: contenido de `destinationBuffer` y registros `TCD0_DADDR`, `TCD0_SADDR`, `TCD0_CITER` (diapositiva 41)])
 
-=== 11. Ejemplo completo: PWM con duty variable desde una tabla (DMA + FTM)
+=== Ejemplo completo: PWM con duty variable desde una tabla (DMA + FTM)
 
 *Objetivo:* generar una señal PWM cuyo *duty cycle cambia automáticamente* en cada período, tomando los valores de una tabla en memoria, sin que la CPU haga nada.
 
@@ -938,7 +938,7 @@ El ancho del pulso (duty) es $t_"duty" = 0.64 mu"s" times "sourceBuffer[i]"$:
 // img: /images/2P/ (captura de osciloscopio del PWM con duty variable, diapositiva 46)
 #imagen([Captura de osciloscopio: PWM con el duty cycle cambiando período a período ($Delta X = 6.4 "ms"$, 156.25 Hz)])
 
-=== 12. Modos avanzados: Scatter-Gather y Channel Linking
+=== Modos avanzados: Scatter-Gather y Channel Linking
 
 Ambos sirven para encadenar transferencias, pero de formas muy distintas.
 
@@ -995,7 +995,7 @@ Los bits `TCDn_CITER[E_LINK]` y `TCDn_BITER[E_LINK]` *deben ser iguales*; si no,
   [Uso de memoria], [Requiere guardar estructuras TCD de 32 bytes en la SRAM.], [No consume RAM adicional; se maneja con los registros de control del eDMA.],
 )
 
-=== 13. Ejemplo: buffer circular de 10 elementos (no potencia de 2)
+=== Ejemplo: buffer circular de 10 elementos (no potencia de 2)
 
 `SMOD`/`DMOD` solo admiten tamaños potencia de dos, así que para un buffer de *10 elementos* hay que usar Scatter-Gather. El ejemplo está basado en la nota de aplicación _What is and how to configure the eDMA scatter-gather feature_.
 
@@ -1021,11 +1021,11 @@ Los valores nuevos son números consecutivos escritos en hexadecimal (`A` = 10, 
 // img: /images/2P/ (diagrama "Simulación" con SRC, DST, TCD A y TCD B, diapositiva 55)
 #imagen([Simulación: `src` y `dst` en cada major loop, alternando TCD A y TCD B, con los datos nuevos que carga la CPU en la interrupción])
 
-=== 14. Herramienta de depuración: EmbSysRegView
+=== Herramienta de depuración: EmbSysRegView
 
 Para *depurar y aprender* el DMA es muy útil poder ver los registros del eDMA (TCD, `ERQ`, etc.) mientras el programa corre. *EmbSysRegView* (_Embedded Systems Register View_) es una vista de Eclipse que muestra todos los registros del micro (en este caso de la familia MK64F12), con sus valores en hexa y binario, su dirección y una descripción de cada campo.
 
-=== 15. Resumen y checklist de configuración
+=== Resumen y checklist de configuración
 
 #cuadro-concepto(titulo: [Receta para configurar un canal DMA])[
 + *Clocks:* habilitar `SIM_SCGC6[DMAMUX]` (y `SIM_SCGC7[DMA]`).
